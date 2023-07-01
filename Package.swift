@@ -18,7 +18,7 @@ let package = Package(
             targets: ["TorrentLibrary"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/nothingsh/TorrentModel", .upToNextMajor(from: "1.0.0")),
+        .package(url: "https://github.com/nothingsh/TorrentModel", .upToNextMajor(from: "1.0.2")),
         .package(url: "https://github.com/Alamofire/Alamofire", .upToNextMajor(from: "5.0.0")),
         .package(url: "https://github.com/robbiehanson/CocoaAsyncSocket", .upToNextMajor(from: "7.0.0"))
     ],
