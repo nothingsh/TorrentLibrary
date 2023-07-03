@@ -19,10 +19,6 @@ public enum TorrentFileManagerError: Error {
 }
 
 class TorrentFileManager {
-    
-    /// block size is 16k
-    static let blockSize: UInt64 = 1024 * 16
-    
     enum DataFragmentType {
         /// block has a piece index
         case block(Int)
@@ -94,7 +90,7 @@ class TorrentFileManager {
     private func calcuateStartOffset(by type: DataFragmentType, at index: Int) -> UInt64 {
         switch type {
         case .block(let pieceIndex):
-            return UInt64(pieceIndex * torrentInfo.pieceLength) + UInt64(index) * Self.blockSize
+            return UInt64(pieceIndex * torrentInfo.pieceLength) + UInt64(index) * TorrentBlock.BLOCK_SIZE
         case .piece:
             return UInt64(index * torrentInfo.pieceLength)
         }
@@ -127,16 +123,16 @@ class TorrentFileManager {
     
     private func calculateBlockSize(at index: Int, with pieceIndex: Int) throws -> UInt64 {
         let pieceSize = try calculatePieceSize(at: pieceIndex)
-        let blockCount = pieceSize/Self.blockSize + (pieceSize%Self.blockSize == 0 ? 0 : 1)
+        let blockCount = pieceSize/TorrentBlock.BLOCK_SIZE + (pieceSize%TorrentBlock.BLOCK_SIZE == 0 ? 0 : 1)
         
         guard index < blockCount else {
             throw TorrentFileManagerError.unexpectedBlockIndex
         }
         
-        if (pieceSize % Self.blockSize == 0) || (index < blockCount - 1) {
-            return Self.blockSize
+        if (pieceSize % TorrentBlock.BLOCK_SIZE == 0) || (index < blockCount - 1) {
+            return TorrentBlock.BLOCK_SIZE
         } else {
-            return pieceSize % Self.blockSize
+            return pieceSize % TorrentBlock.BLOCK_SIZE
         }
     }
 }
@@ -185,7 +181,12 @@ extension TorrentFileManager {
         
         let fileDescriptor: CInt = open(path, O_WRONLY, 0644) // open file for writing
         lseek(fileDescriptor, off_t(length - 1), SEEK_SET) // seek to the last byte ...
-        write(fileDescriptor, UnsafeRawPointer([0]), 1) // ... and write a 0 to it
+        // ... and write a 0 to it
+        let bytesPointer = UnsafeMutableRawPointer.allocate(byteCount: 4, alignment: 4)
+        bytesPointer.storeBytes(of: 0, as: Int.self)
+        write(fileDescriptor, bytesPointer, 1)
+        bytesPointer.deallocate()
+        
         close(fileDescriptor) // Now we have a file of the correct size we close it
     }
 }

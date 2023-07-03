@@ -13,7 +13,7 @@ class TorrentHTTPTracker: TorrentTrackerProtocol {
     let announce: URL
     let connection: HTTPConnection
     
-    init(announce: URL, connection: HTTPConnection) {
+    init(announce: URL, connection: HTTPConnection = HTTPConnection()) {
         self.announce = announce
         self.connection = connection
     }

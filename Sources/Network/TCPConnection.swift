@@ -18,7 +18,7 @@ protocol TCPConnectionDelegate: AnyObject {
 class TCPConnection: NSObject {
     private static let defaultTimeOut: TimeInterval = 15
     
-    private weak var delegate: TCPConnectionDelegate?
+    weak var delegate: TCPConnectionDelegate?
     private let socket: GCDAsyncSocket
     
     /// becase tcp packet is sent aynchronously, so the send completion handlers have to be tagged

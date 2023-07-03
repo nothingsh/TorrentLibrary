@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CommonCrypto
 
 extension Data {
     func toUInt8() -> UInt8 {
@@ -25,6 +26,13 @@ extension Data {
     func toUInt64(bigEndian: Bool = true) throws -> UInt64 {
         let result: UInt64 = try self.withUnsafeBytes<UInt64> { $0.load(as: UInt64.self) }
         return bigEndian ? result.bigEndian : result
+    }
+    
+    func sha1() -> Data {
+        let outputLength = Int(CC_SHA1_DIGEST_LENGTH)
+        var digest = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
+        CC_SHA1((self as NSData).bytes, CC_LONG(self.count), &digest)
+        return Data(bytes: digest, count: outputLength)
     }
 }
 

@@ -130,7 +130,7 @@ extension TorrentUDPTracker: UDPConnectionDelegate {
         let indice = [4, 8, 12, 16, 20].map { $0 + response.startIndex }
         let transactionID = response[indice[0]..<indice[1]]
         guard pendingTransactionID == transactionID else {
-            print("ERROR: unexpected transaction ID")
+            print("Error: unexpected transaction ID")
             return
         }
         

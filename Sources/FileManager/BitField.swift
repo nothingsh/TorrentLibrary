@@ -48,6 +48,10 @@ struct BitField: Equatable {
         bits[index] = value
     }
     
+    func checkAvailability(at index: Int) -> Bool {
+        return bits[index]
+    }
+    
     func toData() -> Data {
         var bytes = [UInt8]()
         

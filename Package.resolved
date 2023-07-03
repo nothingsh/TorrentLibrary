@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/nothingsh/TorrentModel",
       "state" : {
-        "revision" : "cd0cec936df90677dc175495c9c17d0ab9f2bec2",
-        "version" : "1.0.2"
+        "revision" : "50a10bd7fce64a70177859b6e3b269d1c11b2745",
+        "version" : "1.0.3"
       }
     }
   ],
