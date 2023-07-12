@@ -30,7 +30,7 @@ public class TorrentTask {
         self.torrentModel = torrentModel
         self.trackerManager = TorrentTrackerPeerProvider(torrentModel: torrentModel, peerID: clientID)
         self.peerManager = TorrentPeerManager(clientID: clientID, infoHash: torrentModel.infoRawData.sha1(), bitFieldSize: torrentModel.info.pieces.count)
-        self.fileManager = try TorrentFileManager(torrentInfo: torrentModel.info, rootDirectory: downloadPath)
+        self.fileManager = try TorrentFileManager(torrent: torrentModel, rootDirectory: downloadPath)
     }
     
     deinit {
@@ -49,8 +49,8 @@ public class TorrentTask {
         
     }
     
-    public var progress: Double {
-        return 0
+    public var progress: Float {
+        return fileManager.bitField.progress
     }
 }
 
@@ -69,8 +69,7 @@ extension TorrentTask: TorrentPeerManagerDelegate {
     }
     
     func torrentPeerManagerCurrentBitfieldForHandshake(_ sender: TorrentPeerManager) -> BitField {
-        // TODO: maybe use a better way to show download progress
-        (try? TorrentFileManager.loadSavedProgressBitfield(infoHash: torrentModel.infoRawData.sha1(), size: torrentModel.info.pieces.count))!
+        fileManager.bitField
     }
     
     func torrentPeerManager(_ sender: TorrentPeerManager, nextPieceFromAvailable availablePieces: BitField) -> TorrentPieceRequest? {

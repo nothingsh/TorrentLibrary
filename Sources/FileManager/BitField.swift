@@ -75,6 +75,13 @@ struct BitField: Equatable {
         return !bits.contains(where: { !$0 })
     }
     
+    var progress: Float {
+        if bits.count == 0 {
+            return 0
+        }
+        return Float(bits.filter{ $0 }.count) / Float(bits.count)
+    }
+    
     var size: Int {
         return bits.count
     }
