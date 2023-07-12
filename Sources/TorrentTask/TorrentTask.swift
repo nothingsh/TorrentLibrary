@@ -7,9 +7,9 @@
 
 import Foundation
 import TorrentModel
+import CocoaAsyncSocket
 
 public class TorrentTask {
-    
     enum Status {
         case started
         case stopped
@@ -19,15 +19,16 @@ public class TorrentTask {
     let torrentModel: TorrentModel
     private var status: Status = .stopped
     let clientID = TorrentPeer.makePeerID()
-    let port: UInt16 = 6881
+    
+    var listenSocket: GCDAsyncSocket!
     
     let peerManager: TorrentPeerManager
-    let trackerManager: TorrentTrackerManager
+    let trackerManager: TorrentTrackerPeerProvider
     let fileManager: TorrentFileManager
     
     public init(torrentModel: TorrentModel, downloadPath: String) throws {
         self.torrentModel = torrentModel
-        self.trackerManager = TorrentTrackerManager(torrentModel: torrentModel, clientID: clientID, port: port)
+        self.trackerManager = TorrentTrackerPeerProvider(torrentModel: torrentModel, peerID: clientID)
         self.peerManager = TorrentPeerManager(clientID: clientID, infoHash: torrentModel.infoRawData.sha1(), bitFieldSize: torrentModel.info.pieces.count)
         self.fileManager = try TorrentFileManager(torrentInfo: torrentModel.info, rootDirectory: downloadPath)
     }
@@ -50,17 +51,6 @@ public class TorrentTask {
     
     public var progress: Double {
         return 0
-    }
-}
-
-extension TorrentTask: TorrentTrackerManagerDelegate {
-    func torrentTrackerManager(_ sender: TorrentTrackerManager, gotNewPeers peers: [TorrentPeerInfo]) {
-        peerManager.addPeers(withInfo: peers)
-    }
-    
-    func torrentTrackerManagerAnnonuceInfo(_ sender: TorrentTrackerManager) -> TorrentTrackerManagerAnnonuceInfo {
-        // TODO: get progress from file manager
-        return TorrentTrackerManagerAnnonuceInfo(numberOfBytesRemaining: 0, numberOfBytesUploaded: 0, numberOfBytesDownloaded: 0, numberOfPeersToFetch: 50)
     }
 }
 

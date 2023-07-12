@@ -8,8 +8,8 @@
 import Foundation
 
 protocol TorrentTrackerDelegate: AnyObject {
-    func torrentTracker(_ sender: Any, receivedResponse response: TorrentTrackerResponse)
-    func torrentTracker(_ sender: Any, receivedErrorMessage errorMessage: String)
+    func torrentTracker(_ sender: TorrentTrackerProtocol, receivedResponse response: TorrentTrackerResponse)
+    func torrentTracker(_ sender: TorrentTrackerProtocol, receivedErrorMessage errorMessage: String)
 }
 
 protocol TorrentTrackerProtocol: AnyObject {
