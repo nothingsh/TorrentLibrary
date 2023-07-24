@@ -97,15 +97,11 @@ class TorrentPeer {
     
     private func requestNextBlock() {
         if numberOfPendingBlockRequests < TorrentPeer.maximumNumberOfPendingBlockRequests {
-            
             guard let pieceRequest = downloadPieceRequests.values.first else { return }
             guard let blockRequest = pieceRequest.nextDownloadBlock() else { return }
             
             numberOfPendingBlockRequests += 1
-            
-            communicator.sendRequest(fromPieceAtIndex: blockRequest.piece,
-                                     begin: blockRequest.begin,
-                                     length: blockRequest.length)
+            communicator.sendRequest(fromPieceAtIndex: blockRequest.piece, begin: blockRequest.begin, length: blockRequest.length)
             requestNextBlock()
         }
     }

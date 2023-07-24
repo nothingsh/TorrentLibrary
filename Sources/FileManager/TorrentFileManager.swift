@@ -19,7 +19,7 @@ public enum TorrentFileManagerError: Error {
 }
 
 class TorrentFileManager {
-    enum DataFragmentType {
+    enum DataFragmentType: Equatable {
         /// block has a piece index
         case block(Int)
         case piece
@@ -30,7 +30,7 @@ class TorrentFileManager {
         torrentModel.info
     }
     private var torrentInfoHash: Data {
-        torrentModel.infoRawData.sha1()
+        torrentModel.infoHashSHA1
     }
     
     private let rootDirectory: String
@@ -67,7 +67,7 @@ class TorrentFileManager {
     }
     
     /// write data to files by piece or block
-    func writeDataToFiles(by type: DataFragmentType, at index: Int, with data: Data) throws {
+    func writeDataToFiles(by type: DataFragmentType = .piece, at index: Int, with data: Data) throws {
         let startIndex = calcuateStartOffset(by: type, at: index)
         
         if #available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *) {
@@ -81,10 +81,15 @@ class TorrentFileManager {
         } else {
             fileHandle.write(data)
         }
+        
+        // Do not support block progress tracking yet ...
+        if type == .piece {
+            bitField.setBit(at: index, with: true)
+        }
     }
     
     /// read data from files by piece or block
-    func readDataFromFiles(by type: DataFragmentType, at index: Int) throws -> Data {
+    func readDataFromFiles(by type: DataFragmentType = .piece, at index: Int) throws -> Data {
         let startIndex = calcuateStartOffset(by: type, at: index)
         let length = try calcuateDataLength(by: type, at: index)
         
@@ -154,6 +159,19 @@ class TorrentFileManager {
     }
 }
 
+extension TorrentFileManager {
+    func nextPieceDownloadRequest() -> TorrentPieceRequest? {
+        for (index, isDownloaded) in bitField.bits.enumerated() {
+            if !isDownloaded {
+                if let size = torrentInfo.lengthOfPiece(at: index) {
+                    return TorrentPieceRequest(pieceIndex: index, size: size, checksum: torrentInfo.pieces[index])
+                }
+            }
+        }
+        return nil
+    }
+}
+
 // MARK: Progress load and save
 
 extension TorrentFileManager {
@@ -163,7 +181,7 @@ extension TorrentFileManager {
         return sanitizedString + ".torrentprogress"
     }
     
-    func saveProgressBitfield() {
+    private func saveProgressBitfield() {
         let fileName = sanitizedFileName()
         let documentsPath = NSSearchPathForDirectoriesInDomains(.cachesDirectory,
                                                                 .userDomainMask,
@@ -173,7 +191,7 @@ extension TorrentFileManager {
         try? bitField.toData().write(to: fileURL)
     }
     
-    func loadSavedProgressBitfield() throws -> BitField? {
+    private func loadSavedProgressBitfield() throws -> BitField? {
         let fileName = sanitizedFileName()
         let documentsPath = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true)[0] as String
         let documentsUrl = URL(fileURLWithPath: documentsPath, isDirectory: true)
@@ -188,7 +206,7 @@ extension TorrentFileManager {
 // MARK: File structure
 
 extension TorrentFileManager {
-    func prepareRootDirectory() throws {
+    private func prepareRootDirectory() throws {
         try createDirectoryIfNeeded(directoryPath: rootDirectory)
         
         guard let files = torrentInfo.files else {

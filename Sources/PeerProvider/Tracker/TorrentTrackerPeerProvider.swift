@@ -90,7 +90,7 @@ class TorrentTrackerPeerProvider {
         
         let announceInfo = delegate.torrentTrackerManagerAnnonuceInfo(self)
         for tracker in trackers {
-            try tracker.announceClient(with: clientID, port: port, event: .started, infoHash: torrentModel.infoRawData.sha1(), numberOfBytesRemaining: announceInfo.numberOfBytesRemaining, numberOfBytesUploaded: announceInfo.numberOfBytesUploaded, numberOfBytesDownloaded: announceInfo.numberOfBytesDownloaded, numberOfPeersToFetch: announceInfo.numberOfPeersToFetch)
+            try tracker.announceClient(with: clientID, port: port, event: .started, infoHash: torrentModel.infoHashSHA1, numberOfBytesRemaining: announceInfo.numberOfBytesRemaining, numberOfBytesUploaded: announceInfo.numberOfBytesUploaded, numberOfBytesDownloaded: announceInfo.numberOfBytesDownloaded, numberOfPeersToFetch: announceInfo.numberOfPeersToFetch)
         }
     }
 }

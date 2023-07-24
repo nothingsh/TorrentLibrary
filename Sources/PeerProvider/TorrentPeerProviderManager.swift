@@ -9,7 +9,7 @@ import Foundation
 import TorrentModel
 
 protocol TorrentPeerProviderDelegate: AnyObject {
-    func torrentPeerProvider(newPeers: [TorrentPeerInfo])
+    func torrentPeerProvider(_ sender:TorrentPeerProviderManager, newPeers: [TorrentPeerInfo])
 }
 
 class TorrentPeerProviderManager {
@@ -21,11 +21,16 @@ class TorrentPeerProviderManager {
         trackerManager = TorrentTrackerPeerProvider(torrentModel: model, peerID: peerID)
         trackerManager.delegate = self
     }
+    
+    func fetchMorePeers() {
+        trackerManager.forceRestart()
+        // TODO: add more peers from dht ...
+    }
 }
 
 extension TorrentPeerProviderManager: TorrentTrackerManagerDelegate {
     func torrentTrackerManager(_ sender: TorrentTrackerPeerProvider, gotNewPeers peers: [TorrentPeerInfo]) {
-        delegate?.torrentPeerProvider(newPeers: peers)
+        delegate?.torrentPeerProvider(self, newPeers: peers)
     }
     
     func torrentTrackerManagerAnnonuceInfo(_ sender: TorrentTrackerPeerProvider) -> TorrentTrackerManagerAnnonuceInfo {
