@@ -92,7 +92,6 @@ class TorrentPeerManager {
 }
 
 extension TorrentPeerManager: TorrentPeerDelegate {
-    
     private var disconnectedPeers: [TorrentPeer] {
         return peers.filter { !$0.connected }
     }

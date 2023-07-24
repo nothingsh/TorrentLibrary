@@ -23,21 +23,20 @@ public class TorrentTask {
     var listenSocket: GCDAsyncSocket!
     
     let peerManager: TorrentPeerManager
-    let trackerManager: TorrentTrackerPeerProvider
+    let peerProvider: TorrentPeerProviderManager
     let fileManager: TorrentFileManager
     
     public init(torrentModel: TorrentModel, downloadPath: String) throws {
         self.torrentModel = torrentModel
-        self.trackerManager = TorrentTrackerPeerProvider(torrentModel: torrentModel, peerID: clientID)
-        self.peerManager = TorrentPeerManager(clientID: clientID, infoHash: torrentModel.infoRawData.sha1(), bitFieldSize: torrentModel.info.pieces.count)
+        self.peerProvider = TorrentPeerProviderManager(model: torrentModel, peerID: clientID)
+        self.peerManager = TorrentPeerManager(clientID: clientID, infoHash: torrentModel.infoHashSHA1, bitFieldSize: torrentModel.info.pieces.count)
         self.fileManager = try TorrentFileManager(torrent: torrentModel, rootDirectory: downloadPath)
+        
+        self.peerManager.delegate = self
+        self.peerProvider.delegate = self
     }
     
     deinit {
-        
-    }
-    
-    public func startTask() {
         
     }
     
@@ -45,18 +44,55 @@ public class TorrentTask {
         
     }
     
+    public var progress: Float {
+        return fileManager.bitField.progress
+    }
+    
+    public var downloadSpeed: Float {
+        return 0
+    }
+    
+    public var uploadSpeed: Float {
+        return 0
+    }
+}
+
+// MARK: API action
+
+extension TorrentTask {
+    /// remove all downloads and progress
+    public func deleteTask() {
+        
+    }
+    
+    public func startTask() {
+        
+    }
+    
     public func stopTask() {
         
     }
     
-    public var progress: Float {
-        return fileManager.bitField.progress
+    public func renameTorrent() {
+        
+    }
+    
+    public func reDownload() {
+        
+    }
+    
+    public func getTorrentMagnetLink() -> String {
+        return ""
     }
 }
 
 extension TorrentTask: TorrentPeerManagerDelegate {
     func torrentPeerManager(_ sender: TorrentPeerManager, downloadedPieceAtIndex pieceIndex: Int, piece: Data) {
-        
+        do {
+            try fileManager.writeDataToFiles(at: pieceIndex, with: piece)
+        } catch {
+            print("Error: \(error.localizedDescription)")
+        }
     }
     
     func torrentPeerManager(_ sender: TorrentPeerManager, failedToGetPieceAtIndex index: Int) {
@@ -64,8 +100,7 @@ extension TorrentTask: TorrentPeerManagerDelegate {
     }
     
     func torrentPeerManagerNeedsMorePeers(_ sender: TorrentPeerManager) {
-        trackerManager.forceRestart()
-        // TODO: add more peers from dht ...
+        peerProvider.fetchMorePeers()
     }
     
     func torrentPeerManagerCurrentBitfieldForHandshake(_ sender: TorrentPeerManager) -> BitField {
@@ -73,11 +108,16 @@ extension TorrentTask: TorrentPeerManagerDelegate {
     }
     
     func torrentPeerManager(_ sender: TorrentPeerManager, nextPieceFromAvailable availablePieces: BitField) -> TorrentPieceRequest? {
-        // TODO: next piece request
-        return nil
+        fileManager.nextPieceDownloadRequest()
     }
     
     func torrentPeerManager(_ sender: TorrentPeerManager, peerRequiresPieceAtIndex index: Int) -> Data? {
         try? fileManager.readDataFromFiles(by: .piece, at: index)
+    }
+}
+
+extension TorrentTask: TorrentPeerProviderDelegate {
+    func torrentPeerProvider(_ sender: TorrentPeerProviderManager, newPeers: [TorrentPeerInfo]) {
+        peerManager.addPeers(withInfo: newPeers)
     }
 }
