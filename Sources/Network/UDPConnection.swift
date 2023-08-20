@@ -21,7 +21,8 @@ class UDPConnection: NSObject {
         super.init()
         
         socket.setDelegate(self)
-        socket.setDelegateQueue(.main)
+        // keep delegate queue in main thread
+        socket.synchronouslySetDelegateQueue(.main)
     }
     
     deinit {
@@ -45,7 +46,7 @@ class UDPConnection: NSObject {
 
 extension UDPConnection: GCDAsyncUdpSocketDelegate {
     func udpSocket(_ sock: GCDAsyncUdpSocket, didReceive data: Data, fromAddress address: Data, withFilterContext filterContext: Any?) {
-        let hostName = InternetHelper.parseSocketIPAddress(from: data) ?? "Unknown host"
+        let hostName = InternetHelper.parseSocketIPAddress(from: address) ?? "Unknown host"
         delegate?.udpConnection(self, receivedData: data, fromHost: hostName)
     }
 }

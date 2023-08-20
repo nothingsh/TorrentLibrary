@@ -32,7 +32,7 @@ class TorrentHTTPTracker: TorrentTrackerProtocol {
             "numwant" : "\(numberOfPeersToFetch)"
         ]
         
-        try connection.makeRequest(url: announce, urlParameters: parameter)
+        connection.makeRequest(url: announce, urlParameters: parameter)
     }
 }
 
