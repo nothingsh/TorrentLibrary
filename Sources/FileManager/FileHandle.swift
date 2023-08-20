@@ -12,7 +12,7 @@ public enum FileHanleError: Error {
     case unexpectedDataLength
 }
 
-protocol FileHandleProtocol {
+public protocol FileHandleProtocol {
     var offsetInFile: UInt64 { get }
 
     func readData(ofLength length: Int) -> Data
