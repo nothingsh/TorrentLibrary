@@ -18,7 +18,7 @@ let package = Package(
             targets: ["TorrentLibrary"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/nothingsh/TorrentModel", .upToNextMajor(from: "1.0.3")),
+        .package(url: "https://github.com/nothingsh/TorrentModel", .upToNextMajor(from: "1.0.4")),
         .package(url: "https://github.com/Alamofire/Alamofire", .upToNextMajor(from: "5.0.0")),
         .package(url: "https://github.com/robbiehanson/CocoaAsyncSocket", .upToNextMajor(from: "7.0.0")),
         .package(url: "https://github.com/AliSoftware/OHHTTPStubs", .upToNextMajor(from: "9.0.0"))
@@ -34,7 +34,12 @@ let package = Package(
             name: "TorrentLibraryTests",
             dependencies: [
                 .target(name: "TorrentLibrary"),
+                .product(name: "TorrentModel", package: "TorrentModel"),
                 .product(name: "OHHTTPStubsSwift", package: "OHHTTPStubs")
-            ]),
+            ],
+            resources: [
+                .copy("Resources/TrackerManagerTests.torrent")
+            ]
+        ),
     ]
 )

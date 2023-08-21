@@ -29,16 +29,23 @@ struct InternetHelper {
         return socketAddress.sin_port
     }
     
+    /// Turn a url host string into a ip address string
     static func getSocketIPAddress(of host: String) -> String? {
-        guard let hostnameCString = host.cString(using: .ascii), let hostEntry = gethostbyname(hostnameCString)?.pointee, let hostAddressList = hostEntry.h_addr_list?.pointee else {
+        guard let hostEntry = host.withCString({gethostbyname($0)}) else {
             return nil
         }
         
-        let firstHostAddress = hostAddressList.withMemoryRebound(to: in_addr.self, capacity: 1) { $0.pointee }
-        if let resultCString = inet_ntoa(firstHostAddress) {
-            return String(cString: resultCString)
-        } else {
+        guard hostEntry.pointee.h_length > 0 else {
             return nil
         }
+        
+        var addr = in_addr()
+        memcpy(&addr.s_addr, hostEntry.pointee.h_addr_list[0], Int(hostEntry.pointee.h_length))
+        
+        guard let remoteIPAsC = inet_ntoa(addr) else {
+            return nil
+        }
+        
+        return String.init(cString: remoteIPAsC)
     }
 }

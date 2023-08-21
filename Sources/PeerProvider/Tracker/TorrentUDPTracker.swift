@@ -55,7 +55,7 @@ class TorrentUDPTracker: TorrentTrackerProtocol {
             guard responseTransactionID == transactionID else { return }
             
             var payload = connectionID                           // 0      64-bit integer  connection_id
-            payload += Self.CONNECTION_HEADER                    // 8      32-bit integer  action          1 // announce
+            payload += Self.ANNOUNCE_HEADER                      // 8      32-bit integer  action          1 // announce
             payload += strongSelf.makeTransactionID()            // 12     32-bit integer  transaction_id
             payload += infoHash                                  // 16     20-byte string  info_hash
             payload += peerID.data(using: .ascii)!               // 36     20-byte string  peer_id

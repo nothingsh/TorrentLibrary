@@ -28,7 +28,7 @@ class TorrentPeerProviderManager {
     }
 }
 
-extension TorrentPeerProviderManager: TorrentTrackerManagerDelegate {
+extension TorrentPeerProviderManager: TorrentTrackerPeerProviderDelegate {
     func torrentTrackerManager(_ sender: TorrentTrackerPeerProvider, gotNewPeers peers: [TorrentPeerInfo]) {
         delegate?.torrentPeerProvider(self, newPeers: peers)
     }

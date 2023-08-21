@@ -15,13 +15,13 @@ struct TorrentTrackerManagerAnnonuceInfo {
     let numberOfPeersToFetch: Int
 }
 
-protocol TorrentTrackerManagerDelegate: AnyObject {
+protocol TorrentTrackerPeerProviderDelegate: AnyObject {
     func torrentTrackerManager(_ sender: TorrentTrackerPeerProvider, gotNewPeers peers: [TorrentPeerInfo])
     func torrentTrackerManagerAnnonuceInfo(_ sender: TorrentTrackerPeerProvider) -> TorrentTrackerManagerAnnonuceInfo
 }
 
 class TorrentTrackerPeerProvider {
-    weak var delegate: TorrentTrackerManagerDelegate?
+    weak var delegate: TorrentTrackerPeerProviderDelegate?
     
     let trackers: [TorrentTrackerProtocol]
     
@@ -36,15 +36,23 @@ class TorrentTrackerPeerProvider {
         return Timer.scheduledTimer(timeInterval: self.announceTimeInterval, target: self, selector: #selector(announce), userInfo: nil, repeats: true)
     }()
     
-    init(torrentModel: TorrentModel, peerID: Data) {
+    init(torrentModel: TorrentModel, peerID: Data, port: UInt16 = TorrentTrackerPeerProvider.DEFAULT_PORT) {
         self.torrentModel = torrentModel
         self.clientID = String(data: peerID, encoding: .utf8)!
-        self.port = Self.DEFAULT_PORT
+        self.port = port
         self.trackers = TorrentTrackerPeerProvider.createTrackers(from: torrentModel)
         
         for tracker in trackers {
             tracker.delegate = self
         }
+    }
+    
+    /// only for unit test
+    init(torrentModel: TorrentModel, peerID: Data, port: UInt16 = TorrentTrackerPeerProvider.DEFAULT_PORT, trackers: [TorrentTrackerProtocol]) {
+        self.torrentModel = torrentModel
+        self.clientID = String(data: peerID, encoding: .utf8)!
+        self.port = port
+        self.trackers = trackers
     }
         
     private static func createTrackers(from model: TorrentModel) -> [TorrentTrackerProtocol] {

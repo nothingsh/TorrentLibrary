@@ -21,7 +21,7 @@ class TorrentHTTPTracker: TorrentTrackerProtocol {
     
     func announceClient(with peerID: String, port: UInt16, event: TorrentTrackerEvent, infoHash: Data, numberOfBytesRemaining: Int, numberOfBytesUploaded: Int, numberOfBytesDownloaded: Int, numberOfPeersToFetch: Int) throws {
         let parameter = [
-            "info_hash" : infoHash.base64EncodedString(),
+            "info_hash" : String(urlEncodingData: infoHash),
             "peer_id" : peerID,
             "port" : "\(port)",
             "uploaded" : "\(numberOfBytesUploaded)",
