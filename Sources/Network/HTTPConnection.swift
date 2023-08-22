@@ -31,11 +31,15 @@ struct HTTPResponse {
     }
 }
 
-protocol HTTPConnectionDelegate: AnyObject {
-    func httpConnection(_ sender: HTTPConnection, response: HTTPResponse)
+protocol HTTPConnectionProtocol: AnyObject {
+    func makeRequest(url: URL, urlParameters: [String: String]?)
 }
 
-class HTTPConnection {
+protocol HTTPConnectionDelegate: AnyObject {
+    func httpConnection(_ sender: HTTPConnectionProtocol, response: HTTPResponse)
+}
+
+class HTTPConnection: HTTPConnectionProtocol {
     weak var delegate: HTTPConnectionDelegate?
     
     let encoding = ParameterEncodingFixer()

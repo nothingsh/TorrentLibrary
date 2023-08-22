@@ -8,14 +8,29 @@
 import Foundation
 import CocoaAsyncSocket
 
-protocol TCPConnectionDelegate: AnyObject {
-    func tcpConnection(_ sender: TCPConnection, didConnectToHost host: String, port: UInt16)
-    func tcpConnection(_ sender: TCPConnection, didRead data: Data, withTag tag: Int)
-    func tcpConnection(_ sender: TCPConnection, didWriteDataWithTag tag: Int)
-    func tcpConnection(_ sender: TCPConnection, disconnectedWithError error: Error?)
+protocol TCPConnectionProtocol: AnyObject {
+    var delegate: TCPConnectionDelegate? { set get }
+    
+    var connectedHost: String? { get }
+    var connectedPort: UInt16? { get }
+    
+    var connected: Bool { get }
+    func connect(to host: String, onPort port: UInt16) throws
+    func disconnect()
+    
+    func readData(withTimeout timeout: TimeInterval, tag: Int)
+    func write(_ data: Data, withTimeout timeout: TimeInterval, tag: Int)
+    func write(_ data: Data, withTimeout timeout: TimeInterval, completion: (()->Void)?)
 }
 
-class TCPConnection: NSObject {
+protocol TCPConnectionDelegate: AnyObject {
+    func tcpConnection(_ sender: TCPConnectionProtocol, didConnectToHost host: String, port: UInt16)
+    func tcpConnection(_ sender: TCPConnectionProtocol, didRead data: Data, withTag tag: Int)
+    func tcpConnection(_ sender: TCPConnectionProtocol, didWriteDataWithTag tag: Int)
+    func tcpConnection(_ sender: TCPConnectionProtocol, disconnectedWithError error: Error?)
+}
+
+class TCPConnection: NSObject, TCPConnectionProtocol {
     private static let defaultTimeOut: TimeInterval = 15
     
     weak var delegate: TCPConnectionDelegate?

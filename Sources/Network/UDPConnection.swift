@@ -8,11 +8,19 @@
 import Foundation
 import CocoaAsyncSocket
 
-protocol UDPConnectionDelegate: AnyObject {
-    func udpConnection(_ sender: UDPConnection, receivedData data: Data, fromHost host: String)
+protocol UDPConnectionProtocol: AnyObject {
+    var delegate: UDPConnectionDelegate? { set get }
+    
+    var localPort: UInt16 { get }
+    func listening(on port: UInt16) throws
+    func send(_ data: Data, toHost host: String, port: UInt16, timeout: TimeInterval)
 }
 
-class UDPConnection: NSObject {
+protocol UDPConnectionDelegate: AnyObject {
+    func udpConnection(_ sender: UDPConnectionProtocol, receivedData data: Data, fromHost host: String)
+}
+
+class UDPConnection: NSObject, UDPConnectionProtocol {
     weak var delegate: UDPConnectionDelegate?
     private let socket: GCDAsyncUdpSocket
     

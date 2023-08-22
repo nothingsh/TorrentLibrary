@@ -57,8 +57,8 @@ class GCDAsyncUdpSocketStub: GCDAsyncUdpSocket {
 
 class UDPConnectionDelegateTestingStub: UDPConnectionDelegate {
     var receivedDataCalled = false
-    var receivedDataParameters: (sender: UDPConnection, data: Data, host: String)?
-    func udpConnection(_ sender: UDPConnection, receivedData data: Data, fromHost host: String) {
+    var receivedDataParameters: (sender: UDPConnectionProtocol, data: Data, host: String)?
+    func udpConnection(_ sender: UDPConnectionProtocol, receivedData data: Data, fromHost host: String) {
         receivedDataCalled = true
         receivedDataParameters = (sender, data, host)
     }

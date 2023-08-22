@@ -97,7 +97,7 @@ class TorrentUDPTracker: TorrentTrackerProtocol {
 }
 
 extension TorrentUDPTracker: UDPConnectionDelegate {
-    func udpConnection(_ sender: UDPConnection, receivedData data: Data, fromHost host: String) {
+    func udpConnection(_ sender: UDPConnectionProtocol, receivedData data: Data, fromHost host: String) {
         let endIndex = data.startIndex + 4
         let header = data[data.startIndex..<endIndex]
         

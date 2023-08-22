@@ -37,7 +37,7 @@ class TorrentHTTPTracker: TorrentTrackerProtocol {
 }
 
 extension TorrentHTTPTracker: HTTPConnectionDelegate {
-    func httpConnection(_ sender: HTTPConnection, response: HTTPResponse) {
+    func httpConnection(_ sender: HTTPConnectionProtocol, response: HTTPResponse) {
         if let data = response.responseData {
             do {
                 if let result = try? TorrentTrackerResponse(bencode: data) {
