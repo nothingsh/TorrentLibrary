@@ -56,7 +56,7 @@ class TorrentPeerCommunicator {
     }
     
     private let peerInfo: TorrentPeerInfo
-    private let connection: TCPConnection
+    private let connection: TCPConnectionProtocol
     
     fileprivate let infoHash: Data
     
@@ -64,7 +64,7 @@ class TorrentPeerCommunicator {
     fileprivate let handshakeMessageBuffer: TorrentPeerHandshakeBuffer
     fileprivate let messageBuffer: TorrentPeerMessageBuffer
     
-    init(peerInfo: TorrentPeerInfo, infoHash: Data, tcpConnection: TCPConnection = TCPConnection()) {
+    init(peerInfo: TorrentPeerInfo, infoHash: Data, tcpConnection: TCPConnectionProtocol = TCPConnection()) {
         self.peerInfo = peerInfo
         self.connection = tcpConnection
         self.infoHash = infoHash
@@ -191,12 +191,12 @@ class TorrentPeerCommunicator {
 // MARK: - Reading messages
 
 extension TorrentPeerCommunicator: TCPConnectionDelegate {
-    func tcpConnection(_ sender: TCPConnection, didConnectToHost host: String, port: UInt16) {
+    func tcpConnection(_ sender: TCPConnectionProtocol, didConnectToHost host: String, port: UInt16) {
         delegate?.peerConnected(self)
         connection.readData(withTimeout: -1, tag: 0)
     }
     
-    func tcpConnection(_ sender: TCPConnection, didRead data: Data, withTag tag: Int) {
+    func tcpConnection(_ sender: TCPConnectionProtocol, didRead data: Data, withTag tag: Int) {
         if !handshakeReceived {
             handshakeMessageBuffer.appendData(data)
         } else {
@@ -206,11 +206,11 @@ extension TorrentPeerCommunicator: TCPConnectionDelegate {
         connection.readData(withTimeout: -1, tag: 0)
     }
     
-    func tcpConnection(_ sender: TCPConnection, didWriteDataWithTag tag: Int) {
+    func tcpConnection(_ sender: TCPConnectionProtocol, didWriteDataWithTag tag: Int) {
         
     }
     
-    func tcpConnection(_ sender: TCPConnection, disconnectedWithError error: Error?) {
+    func tcpConnection(_ sender: TCPConnectionProtocol, disconnectedWithError error: Error?) {
         // This was in my previous implementation, not sure why - never used:
         // let connectionWasRefused = (error == nil) || error.code == 61
         delegate?.peerLost(self)

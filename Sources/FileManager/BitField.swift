@@ -44,7 +44,7 @@ struct BitField: Equatable {
         }
     }
     
-    mutating func setBit(at index: Int, with value: Bool) {
+    mutating func setBit(at index: Int, with value: Bool = true) {
         bits[index] = value
     }
     
