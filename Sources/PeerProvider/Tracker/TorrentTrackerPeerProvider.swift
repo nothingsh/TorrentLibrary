@@ -32,9 +32,7 @@ class TorrentTrackerPeerProvider {
     static let DEFAULT_PORT: UInt16 = 6881
     
     var announceTimeInterval: TimeInterval = 600
-    private lazy var announceTimer: Timer = {
-        return Timer.scheduledTimer(timeInterval: self.announceTimeInterval, target: self, selector: #selector(announce), userInfo: nil, repeats: true)
-    }()
+    private weak var announceTimer: Timer?
     
     init(torrentModel: TorrentModel, peerID: Data, port: UInt16 = TorrentTrackerPeerProvider.DEFAULT_PORT) {
         self.torrentModel = torrentModel
@@ -45,6 +43,8 @@ class TorrentTrackerPeerProvider {
         for tracker in trackers {
             tracker.delegate = self
         }
+        
+        self.announceTimer = Timer.scheduledTimer(timeInterval: self.announceTimeInterval, target: self, selector: #selector(announce), userInfo: nil, repeats: true)
     }
     
     /// only for unit test
@@ -85,12 +85,20 @@ class TorrentTrackerPeerProvider {
         return result
     }
     
-    func start() {
+    func startTrackersAccess() {
         forceRestart()
     }
     
+    func resumeTrackersAccess() {
+        forceRestart()
+    }
+    
+    func stopTrackersAccess() {
+        announceTimer?.invalidate()
+    }
+    
     func forceRestart() {
-        announceTimer.fire()
+        announceTimer?.fire()
     }
     
     @objc private func announce() throws {

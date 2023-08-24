@@ -35,14 +35,32 @@ class TorrentPeerManager {
         return peers.filter({ $0.connected && $0.currentProgress.complete }).count
     }
     
-    private(set) var downloadSpeedTracker: NetworkSpeedTrackable!
+    private var downloadSpeedTracker: NetworkSpeedTrackable!
+    private var uploadSpeedTrackers: NetworkSpeedTrackable!
+    
+    static let SPEED_SAMPLE_INTERVAL: TimeInterval = 30
+    
+    var downloadSpeed: String {
+        let speedBySampleInterval = downloadSpeedTracker.numberOfBytesDownloaded(over: Self.SPEED_SAMPLE_INTERVAL)
+        return speedBySampleInterval.toByteString()
+    }
+    
+    var uploadSpeed: String {
+        let speedBySampleInterval = uploadSpeedTrackers.numberOfBytesDownloaded(over: Self.SPEED_SAMPLE_INTERVAL)
+        return speedBySampleInterval.toByteString()
+    }
     
     init(clientID: Data, infoHash: Data, bitFieldSize: Int) {
         self.clientID = clientID
         self.infoHash = infoHash
         self.bitFieldSize = bitFieldSize
+        
         self.downloadSpeedTracker = CombinedNetworkSpeedTracker { [unowned self] in
             return self.peers.map { $0.downloadSpeedTracker }
+        }
+        
+        self.uploadSpeedTrackers = CombinedNetworkSpeedTracker { [unowned self] in
+            return self.peers.map { $0.uploadSpeedTracker }
         }
     }
     
@@ -63,8 +81,17 @@ class TorrentPeerManager {
         peers.append(peer)
     }
     
+    func stopPeersConnection() {
+        for peer in peers {
+            peer.disconnect()
+        }
+    }
+    
+    func resumePeersConnections() {
+        connectToPeersIfNeeded(peers: self.peers)
+    }
+    
     fileprivate func connectToPeersIfNeeded(peers: [TorrentPeer]) {
-        
         guard let delegate = delegate else { return }
         
         let max = maximumNumberOfConnectedPeers - numberOfConnectedPeers

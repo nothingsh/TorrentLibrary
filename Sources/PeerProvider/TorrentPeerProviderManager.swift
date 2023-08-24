@@ -22,9 +22,20 @@ class TorrentPeerProviderManager {
         trackerManager.delegate = self
     }
     
-    func fetchMorePeers() {
+    func startPeersFetching() {
+        trackerManager.startTrackersAccess()
+    }
+    
+    func resumePeersFetching() {
+        trackerManager.resumeTrackersAccess()
+    }
+    
+    func stopPeersFetching() {
+        trackerManager.stopTrackersAccess()
+    }
+    
+    func fetchMorePeersImediatly() {
         trackerManager.forceRestart()
-        // TODO: add more peers from dht ...
     }
 }
 

@@ -82,6 +82,10 @@ class TorrentPeerCommunicator {
         try connection.connect(to: peerInfo.ip, onPort: peerInfo.port)
     }
     
+    func disconnect() {
+        connection.disconnect()
+    }
+    
     // MARK: - Writing messages
 
     func sendHandshake(for clientID: Data, _ completion: (()->Void)? = nil) {
