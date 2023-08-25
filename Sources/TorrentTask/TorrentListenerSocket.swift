@@ -1,5 +1,5 @@
 //
-//  TorrentListenSocket.swift
+//  TorrentListenerSocket.swift
 //  
 //
 //  Created by Wynn Zhang on 8/24/23.
@@ -8,13 +8,13 @@
 import Foundation
 import CocoaAsyncSocket
 
-protocol TorrentListenSocketDelegate: AnyObject {
-    func torrentListenSocket(_ torrentSocket: TorrentListenSocket, connectedToPeer peer: TorrentPeer)
-    func currentProgress(for torrentSocket: TorrentListenSocket) -> BitField
+protocol TorrentListenerSocketDelegate: AnyObject {
+    func torrentListenSocket(_ torrentSocket: TorrentListenerSocket, connectedToPeer peer: TorrentPeer)
+    func currentProgress(for torrentSocket: TorrentListenerSocket) -> BitField
 }
 
-class TorrentListenSocket: NSObject {
-    weak var delegate: TorrentListenSocketDelegate?
+class TorrentListenerSocket: NSObject {
+    weak var delegate: TorrentListenerSocketDelegate?
     
     var listenSocket: GCDAsyncSocket!
     let infoHash: Data
@@ -50,7 +50,7 @@ class TorrentListenSocket: NSObject {
     }
 }
 
-extension TorrentListenSocket: GCDAsyncSocketDelegate {
+extension TorrentListenerSocket: GCDAsyncSocketDelegate {
     func socket(_ sock: GCDAsyncSocket, didAcceptNewSocket newSocket: GCDAsyncSocket) {
         guard let delegate = self.delegate else {
             return

@@ -10,6 +10,7 @@ import TorrentModel
 
 protocol TorrentPeerProviderDelegate: AnyObject {
     func torrentPeerProvider(_ sender:TorrentPeerProviderManager, newPeers: [TorrentPeerInfo])
+    func torrentPeerProviderManagerAnnonuceInfo(_ sender: TorrentPeerProviderManager) -> TorrentTrackerManagerAnnonuceInfo
 }
 
 class TorrentPeerProviderManager {
@@ -45,7 +46,6 @@ extension TorrentPeerProviderManager: TorrentTrackerPeerProviderDelegate {
     }
     
     func torrentTrackerManagerAnnonuceInfo(_ sender: TorrentTrackerPeerProvider) -> TorrentTrackerManagerAnnonuceInfo {
-        // TODO: return progress
-        return TorrentTrackerManagerAnnonuceInfo(numberOfBytesRemaining: 0, numberOfBytesUploaded: 0, numberOfBytesDownloaded: 0, numberOfPeersToFetch: 0)
+        return delegate?.torrentPeerProviderManagerAnnonuceInfo(self) ?? .EMPTY_INFO
     }
 }

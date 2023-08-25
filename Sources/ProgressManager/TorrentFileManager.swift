@@ -174,19 +174,6 @@ class TorrentFileManager {
     }
 }
 
-extension TorrentFileManager {
-    func nextPieceDownloadRequest() -> TorrentPieceRequest? {
-        for (index, isDownloaded) in bitField.bits.enumerated() {
-            if !isDownloaded {
-                if let size = torrentInfo.lengthOfPiece(at: index) {
-                    return TorrentPieceRequest(pieceIndex: index, size: size, checksum: torrentInfo.pieces[index])
-                }
-            }
-        }
-        return nil
-    }
-}
-
 // MARK: Progress load and save
 
 extension TorrentFileManager {

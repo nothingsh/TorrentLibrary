@@ -134,18 +134,14 @@ extension TorrentUDPTracker: UDPConnectionDelegate {
             return
         }
         
-        do {
-            let interval = try response[indice[1]..<indice[2]].toUInt32()
-            let leechers = try response[indice[2]..<indice[3]].toUInt32()
-            let seeders  = try response[indice[3]..<indice[4]].toUInt32()
-            let peers = TorrentPeerInfo.parsePeers(from: response[indice[4]..<response.count])
-            
-            let response = TorrentTrackerResponse(peers: peers, numberOfPeersComplete: Int(seeders), numberOfPeersIncomplete: Int(leechers), interval: Int(interval))
-            
-            self.delegate?.torrentTracker(self, receivedResponse: response)
-        } catch {
-            print("Error: \(error.localizedDescription)")
-        }
+        let interval = response[indice[1]..<indice[2]].toUInt32()
+        let leechers = response[indice[2]..<indice[3]].toUInt32()
+        let seeders  = response[indice[3]..<indice[4]].toUInt32()
+        let peers = TorrentPeerInfo.parsePeers(from: response[indice[4]..<response.count])
+        
+        let response = TorrentTrackerResponse(peers: peers, numberOfPeersComplete: Int(seeders), numberOfPeersIncomplete: Int(leechers), interval: Int(interval))
+        
+        self.delegate?.torrentTracker(self, receivedResponse: response)
     }
     
     private func parseErrorResponse(_ response: Data) {

@@ -290,12 +290,8 @@ extension TorrentPeerCommunicator: TorrentPeerMessageBufferDelegate {
     private func processHasPieceMessage(_ message: Data) {
         let startIndex = message.startIndex + 5, endIndex = message.startIndex + 9
         
-        do {
-            let pieceIndex = Int(try UInt32(data: message[startIndex..<endIndex]))
-            delegate?.peer(self, hasPiece: pieceIndex)
-        } catch {
-            print("Error: unable to process has piece message - \(error.localizedDescription)")
-        }
+        let pieceIndex = Int(UInt32(data: message[startIndex..<endIndex]))
+        delegate?.peer(self, hasPiece: pieceIndex)
     }
     
     private func processBitFieldMessage(_ message: Data) {
@@ -308,41 +304,29 @@ extension TorrentPeerCommunicator: TorrentPeerMessageBufferDelegate {
         let index0 = message.startIndex + 5, index1 = message.startIndex + 9
         let index2 = message.startIndex + 13, index3 = message.startIndex + 17
         
-        do {
-            let pieceIndex = Int(try UInt32(data: message[index0..<index1]))
-            let begin = Int(try UInt32(data: message[index1..<index2]))
-            let length = Int(try UInt32(data: message[index2..<index3]))
-            delegate?.peer(self, requestedPiece: pieceIndex, begin: begin, length: length)
-        } catch {
-            print("Error: unable to process requst message - \(error.localizedDescription)")
-        }
+        let pieceIndex = Int(UInt32(data: message[index0..<index1]))
+        let begin = Int(UInt32(data: message[index1..<index2]))
+        let length = Int(UInt32(data: message[index2..<index3]))
+        delegate?.peer(self, requestedPiece: pieceIndex, begin: begin, length: length)
     }
     
     private func processSentPieceMessage(_ message: Data) {
         let index0 = message.startIndex + 5, index1 = message.startIndex + 9, index2 = message.startIndex + 13
         
-        do {
-            let pieceIndex = Int(try UInt32(data: message[index0..<index1]))
-            let begin = Int(try UInt32(data: message[index1..<index2]))
-            let block = message[index2..<message.endIndex]
-            delegate?.peer(self, sentPiece: pieceIndex, begin: begin, block: block)
-        } catch {
-            print("Error: unable to process sent piece message - \(error.localizedDescription)")
-        }
+        let pieceIndex = Int(UInt32(data: message[index0..<index1]))
+        let begin = Int(UInt32(data: message[index1..<index2]))
+        let block = message[index2..<message.endIndex]
+        delegate?.peer(self, sentPiece: pieceIndex, begin: begin, block: block)
     }
     
     private func processCancelRequestMessage(_ message: Data) {
         let index0 = message.startIndex + 5, index1 = message.startIndex + 9
         let index2 = message.startIndex + 13, index3 = message.startIndex + 17
         
-        do {
-            let pieceIndex = Int(try UInt32(data: message[index0..<index1]))
-            let begin = Int(try UInt32(data: message[index1..<index2]))
-            let length = Int(try UInt32(data: message[index2..<index3]))
-            delegate?.peer(self, cancelledRequestedPiece: pieceIndex, begin: begin, length: length)
-        } catch {
-            print("Error: unable to process cancel request message - \(error.localizedDescription)")
-        }
+        let pieceIndex = Int(UInt32(data: message[index0..<index1]))
+        let begin = Int(UInt32(data: message[index1..<index2]))
+        let length = Int(UInt32(data: message[index2..<index3]))
+        delegate?.peer(self, cancelledRequestedPiece: pieceIndex, begin: begin, length: length)
     }
 }
 

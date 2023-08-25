@@ -45,7 +45,6 @@ class TorrentTrackerStub: TorrentTrackerProtocol {
 }
 
 class TorrentTrackerPeerProviderDelegateStub: TorrentTrackerPeerProviderDelegate {
-    
     func torrentTrackerManager(_ sender: TorrentTrackerPeerProvider, gotNewPeers peers: [TorrentPeerInfo]) {
         
     }
@@ -107,7 +106,6 @@ final class TorrentTrackerPeerProviderTest: XCTestCase {
     }
     
     func test_startWillAnnounceToTrackers() {
-        
         // Given
         let tracker = TorrentTrackerStub()
         let delegate = TorrentTrackerPeerProviderDelegateStub()

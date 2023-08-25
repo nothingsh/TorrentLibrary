@@ -13,6 +13,8 @@ struct TorrentTrackerManagerAnnonuceInfo {
     let numberOfBytesUploaded: Int
     let numberOfBytesDownloaded: Int
     let numberOfPeersToFetch: Int
+    
+    static let EMPTY_INFO = TorrentTrackerManagerAnnonuceInfo(numberOfBytesRemaining: 0, numberOfBytesUploaded: 0, numberOfBytesDownloaded: 0, numberOfPeersToFetch: 0)
 }
 
 protocol TorrentTrackerPeerProviderDelegate: AnyObject {
@@ -32,7 +34,14 @@ class TorrentTrackerPeerProvider {
     static let DEFAULT_PORT: UInt16 = 6881
     
     var announceTimeInterval: TimeInterval = 600
-    private weak var announceTimer: Timer?
+    // private weak var announceTimer: Timer?
+    private lazy var announceTimer: Timer = { [unowned self] in
+        return Timer.scheduledTimer(timeInterval: self.announceTimeInterval,
+                                    target: self,
+                                    selector: #selector(announce),
+                                    userInfo: nil,
+                                    repeats: true)
+    }()
     
     init(torrentModel: TorrentModel, peerID: Data, port: UInt16 = TorrentTrackerPeerProvider.DEFAULT_PORT) {
         self.torrentModel = torrentModel
@@ -43,8 +52,6 @@ class TorrentTrackerPeerProvider {
         for tracker in trackers {
             tracker.delegate = self
         }
-        
-        self.announceTimer = Timer.scheduledTimer(timeInterval: self.announceTimeInterval, target: self, selector: #selector(announce), userInfo: nil, repeats: true)
     }
     
     /// only for unit test
@@ -94,11 +101,11 @@ class TorrentTrackerPeerProvider {
     }
     
     func stopTrackersAccess() {
-        announceTimer?.invalidate()
+        announceTimer.invalidate()
     }
     
     func forceRestart() {
-        announceTimer?.fire()
+        announceTimer.fire()
     }
     
     @objc private func announce() throws {

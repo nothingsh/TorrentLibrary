@@ -75,16 +75,6 @@ struct BitField: Equatable {
         return !bits.contains(where: { !$0 })
     }
     
-    // download percentage, a two presicion decimal
-    var progress: Float {
-        if bits.count == 0 {
-            return 0
-        }
-        
-        let result = Float(bits.filter{ $0 }.count) / Float(bits.count)
-        return Float(Int(result * 10000)) / Float(100)
-    }
-    
     var size: Int {
         return bits.count
     }
