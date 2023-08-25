@@ -121,7 +121,7 @@ final class TorrentTrackerPeerProviderTest: XCTestCase {
         sut.delegate = delegate
         
         // When
-        sut.start()
+        sut.startTrackersAccess()
         
         // Then
         XCTAssert(tracker.announceClientCalled)
@@ -155,7 +155,7 @@ final class TorrentTrackerPeerProviderTest: XCTestCase {
         sut.announceTimeInterval = 0
         
         // When
-        sut.start()
+        sut.startTrackersAccess()
         
         // Then
         let expectation = self.expectation(description: "Announce is repeatedly called")
@@ -178,7 +178,7 @@ final class TorrentTrackerPeerProviderTest: XCTestCase {
         
         sut.delegate = delegate
         sut.announceTimeInterval = 600
-        sut.start()
+        sut.startTrackersAccess()
         
         // Then
         let expectation = self.expectation(description: "Announce is repeatedly called")

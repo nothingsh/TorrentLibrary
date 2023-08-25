@@ -38,7 +38,11 @@ let package = Package(
                 .product(name: "OHHTTPStubsSwift", package: "OHHTTPStubs")
             ],
             resources: [
-                .copy("Resources/TrackerManagerTests.torrent")
+                .copy("Resources/TrackerManagerTests.torrent"),
+                .copy("Resources/BigTorrentTest.torrent"),
+                .copy("Resources/Data.bin"),
+                .copy("Resources/text.txt"),
+                .copy("Resources/TestText.torrent")
             ]
         ),
     ]

@@ -35,8 +35,8 @@ class TorrentPeerManager {
         return peers.filter({ $0.connected && $0.currentProgress.complete }).count
     }
     
-    private var downloadSpeedTracker: NetworkSpeedTrackable!
-    private var uploadSpeedTrackers: NetworkSpeedTrackable!
+    var downloadSpeedTracker: NetworkSpeedTrackable!
+    var uploadSpeedTrackers: NetworkSpeedTrackable!
     
     static let SPEED_SAMPLE_INTERVAL: TimeInterval = 30
     

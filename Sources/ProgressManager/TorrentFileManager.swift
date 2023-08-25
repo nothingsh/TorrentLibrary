@@ -26,6 +26,10 @@ class TorrentFileManager {
     }
     
     private let torrentModel: TorrentModel
+    var model: TorrentModel {
+        torrentModel
+    }
+    
     private var torrentInfo: TorrentModelInfo {
         torrentModel.info
     }
@@ -36,14 +40,7 @@ class TorrentFileManager {
     private let rootDirectory: String
     private let fileHandle: FileHandleProtocol
     
-    var bitField: BitField {
-        get {
-            // Note: maybe load aynchronously
-            (try? loadSavedProgressBitfield()) ?? BitField(size: torrentInfo.pieces.count)
-        } set {
-            saveProgressBitfield()
-        }
-    }
+    var bitField: BitField =  BitField(size: 0)
     
     init(torrent: TorrentModel, rootDirectory: String) throws {
         self.torrentModel = torrent
@@ -66,6 +63,29 @@ class TorrentFileManager {
         try self.prepareRootDirectory()
     }
     
+    // Only for Unit Test
+    init(torrent: TorrentModel, rootDirectory: String, fileHandles: [FileHandleProtocol]) {
+        self.torrentModel = torrent
+        self.rootDirectory = rootDirectory
+        self.fileHandle = try! MultiFileHandle(fileHandles: fileHandles)
+    }
+    
+    // TODO: Multi-threaded check
+    func reCheckProgress() -> BitField {
+        var result = BitField(size: model.info.pieces.count)
+        for (pieceIndex, _) in result {
+            autoreleasepool {
+                let correctSha1 = model.info.pieces[pieceIndex]
+                let piece = try! readDataFromFiles(at: pieceIndex)
+                let sha1 = piece.sha1()
+                if sha1 == correctSha1 {
+                    result.setBit(at: pieceIndex)
+                }
+            }
+        }
+        return result
+    }
+    
     /// write data to files by piece or block
     func writeDataToFiles(by type: DataFragmentType = .piece, at index: Int, with data: Data) throws {
         let startIndex = calcuateStartOffset(by: type, at: index)
@@ -80,11 +100,6 @@ class TorrentFileManager {
             try fileHandle.write(contentsOf: data)
         } else {
             fileHandle.write(data)
-        }
-        
-        // Do not support block progress tracking yet ...
-        if type == .piece {
-            bitField.setBit(at: index, with: true)
         }
     }
     
@@ -175,14 +190,14 @@ extension TorrentFileManager {
 // MARK: Progress load and save
 
 extension TorrentFileManager {
-    private func sanitizedFileName() -> String {
-        let base64EncodedString = torrentInfoHash.base64EncodedData().base64EncodedString()
+    static func sanitizedFileName(infoHash: Data) -> String {
+        let base64EncodedString = infoHash.base64EncodedData().base64EncodedString()
         let sanitizedString = base64EncodedString.replacingOccurrences(of: "/", with: "_")
         return sanitizedString + ".torrentprogress"
     }
     
-    private func saveProgressBitfield() {
-        let fileName = sanitizedFileName()
+    static func saveProgressBitfield(infoHash: Data, bitField: BitField) {
+        let fileName = sanitizedFileName(infoHash: infoHash)
         let documentsPath = NSSearchPathForDirectoriesInDomains(.cachesDirectory,
                                                                 .userDomainMask,
                                                                 true)[0] as String
@@ -191,13 +206,13 @@ extension TorrentFileManager {
         try? bitField.toData().write(to: fileURL)
     }
     
-    private func loadSavedProgressBitfield() throws -> BitField? {
-        let fileName = sanitizedFileName()
+    static func loadSavedProgressBitfield(infoHash: Data, count: Int) throws -> BitField? {
+        let fileName = sanitizedFileName(infoHash: infoHash)
         let documentsPath = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true)[0] as String
         let documentsUrl = URL(fileURLWithPath: documentsPath, isDirectory: true)
         let fileURL = documentsUrl.appendingPathComponent(fileName, isDirectory: false)
         if let data = try? Data(contentsOf: fileURL) {
-            return try BitField(data: data, size: torrentInfo.pieces.count)
+            return try BitField(data: data, size: count)
         }
         return nil
     }
