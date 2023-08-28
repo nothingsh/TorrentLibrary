@@ -2,128 +2,84 @@
 //  TorrentTrackerPeerProvider.swift
 //  
 //
-//  Created by Wynn Zhang on 7/3/23.
+//  Created by Wynn Zhang on 8/28/23.
 //
 
 import Foundation
-import TorrentModel
 
-struct TorrentTrackerManagerAnnonuceInfo {
-    let numberOfBytesRemaining: Int
-    let numberOfBytesUploaded: Int
-    let numberOfBytesDownloaded: Int
-    let numberOfPeersToFetch: Int
-    
-    static let EMPTY_INFO = TorrentTrackerManagerAnnonuceInfo(numberOfBytesRemaining: 0, numberOfBytesUploaded: 0, numberOfBytesDownloaded: 0, numberOfPeersToFetch: 0)
+public enum TorrentTrackerPeerProviderError: Error {
+    case noValidPortLeft
 }
 
 protocol TorrentTrackerPeerProviderDelegate: AnyObject {
-    func torrentTrackerManager(_ sender: TorrentTrackerPeerProvider, gotNewPeers peers: [TorrentPeerInfo])
-    func torrentTrackerManagerAnnonuceInfo(_ sender: TorrentTrackerPeerProvider) -> TorrentTrackerManagerAnnonuceInfo
+    func torrentTrackerPeerProvider(_ sender: TorrentTrackerPeerProvider, got newPeers: [TorrentPeerInfo], for clientID: Data)
+    func torrentTrackerPeerProvider(_ sender: TorrentTrackerPeerProvider) -> TorrentTrackerManagerAnnonuceInfo
 }
 
 class TorrentTrackerPeerProvider {
+    typealias TrackerManagerInfo = (manager: TorrentTrackerManager, port: UInt16)
+    
+    static let START_PORT: UInt16 = 3475
+    
+    let portRange: Range<UInt16>
+    var trackerMangerDict: [TorrentTaskConf: TrackerManagerInfo]
+    
     weak var delegate: TorrentTrackerPeerProviderDelegate?
     
-    let trackers: [TorrentTrackerProtocol]
-    
-    let torrentModel: TorrentModel
-    let clientID: String
-    let port: UInt16
-    
-    static let DEFAULT_PORT: UInt16 = 6881
-    
-    var announceTimeInterval: TimeInterval = 600
-    // private weak var announceTimer: Timer?
-    private lazy var announceTimer: Timer = { [unowned self] in
-        return Timer.scheduledTimer(timeInterval: self.announceTimeInterval,
-                                    target: self,
-                                    selector: #selector(announce),
-                                    userInfo: nil,
-                                    repeats: true)
-    }()
-    
-    init(torrentModel: TorrentModel, peerID: Data, port: UInt16 = TorrentTrackerPeerProvider.DEFAULT_PORT) {
-        self.torrentModel = torrentModel
-        self.clientID = String(data: peerID, encoding: .utf8)!
-        self.port = port
-        self.trackers = TorrentTrackerPeerProvider.createTrackers(from: torrentModel)
-        
-        for tracker in trackers {
-            tracker.delegate = self
-        }
+    init() {
+        let largest_port = Self.START_PORT + UInt16(TorrentTaskConf.MAX_ACTIVE_TORRENT)
+        self.portRange = Self.START_PORT..<largest_port
+        self.trackerMangerDict = [:]
     }
     
-    /// only for unit test
-    init(torrentModel: TorrentModel, peerID: Data, port: UInt16 = TorrentTrackerPeerProvider.DEFAULT_PORT, trackers: [TorrentTrackerProtocol]) {
-        self.torrentModel = torrentModel
-        self.clientID = String(data: peerID, encoding: .utf8)!
-        self.port = port
-        self.trackers = trackers
+    func setupTrackerPeerProvider(for conf: TorrentTaskConf) {
+        let unusedPort = try! findUnusedPort()
+        let manager = TorrentTrackerManager(torrentConf: conf, port: unusedPort)
+        trackerMangerDict[conf] = (manager, unusedPort)
     }
-        
-    private static func createTrackers(from model: TorrentModel) -> [TorrentTrackerProtocol] {
-        let announceList = model.announceList
-        let flatAnnounceList = announceList.flatMap { return $0 }
-        
-        var lastPortNumberUsed: UInt16 = 3475
-        var result: [TorrentTrackerProtocol] = []
-        
-        for urlString in flatAnnounceList {
-            if let url = URL(string: urlString) {
-                if url.scheme == "http" || url.scheme == "https" {
-                    let tracker = TorrentHTTPTracker(announce: url.bySettingScheme(to: "https"))
-                    result.append(tracker)
-                } else if url.scheme == "udp" {
-                    do {
-                        let tracker = try TorrentUDPTracker(announceURL: url, port: lastPortNumberUsed)
-                        result.append(tracker)
-                        
-                        // TODO: Support sharing the listening port for all udp trackers
-                        lastPortNumberUsed += 1
-                    } catch {
-                        print("Error: unable to create udp tracker: \(urlString)")
-                    }
-                }
-            } else {
-                print("Error: unable to parse announce list item: \(urlString)")
+    
+    func startTrackerPeerProvider(for conf: TorrentTaskConf) {
+        trackerMangerDict[conf]?.manager.startTrackersAccess()
+    }
+    
+    func stopTrackerPeerProvider(for conf: TorrentTaskConf) {
+        trackerMangerDict[conf]?.manager.stopTrackersAccess()
+    }
+    
+    func resumeTrackerPeerProvider(for conf: TorrentTaskConf) {
+        trackerMangerDict[conf]?.manager.resumeTrackersAccess()
+    }
+    
+    func startPeerProviderImediatly(for conf: TorrentTaskConf) {
+        trackerMangerDict[conf]?.manager.forceRestart()
+    }
+    
+    func removeTrackerPeerProvider(for conf: TorrentTaskConf) {
+        self.stopTrackerPeerProvider(for: conf)
+        trackerMangerDict.removeValue(forKey: conf)
+    }
+    
+    private func findUnusedPort() throws -> UInt16 {
+        for port in self.portRange {
+            if !trackerMangerDict.values.contains(where: { $0.port == port }) {
+                return port
             }
         }
-        return result
-    }
-    
-    func startTrackersAccess() {
-        forceRestart()
-    }
-    
-    func resumeTrackersAccess() {
-        forceRestart()
-    }
-    
-    func stopTrackersAccess() {
-        announceTimer.invalidate()
-    }
-    
-    func forceRestart() {
-        announceTimer.fire()
-    }
-    
-    @objc private func announce() throws {
-        guard let delegate = delegate else { return }
         
-        let announceInfo = delegate.torrentTrackerManagerAnnonuceInfo(self)
-        for tracker in trackers {
-            try tracker.announceClient(with: clientID, port: port, event: .started, infoHash: torrentModel.infoHashSHA1, numberOfBytesRemaining: announceInfo.numberOfBytesRemaining, numberOfBytesUploaded: announceInfo.numberOfBytesUploaded, numberOfBytesDownloaded: announceInfo.numberOfBytesDownloaded, numberOfPeersToFetch: announceInfo.numberOfPeersToFetch)
-        }
+        throw TorrentTrackerPeerProviderError.noValidPortLeft
     }
 }
 
-extension TorrentTrackerPeerProvider: TorrentTrackerDelegate {
-    func torrentTracker(_ sender: TorrentTrackerProtocol, receivedResponse response: TorrentTrackerResponse) {
-        delegate?.torrentTrackerManager(self, gotNewPeers: response.peers)
+extension TorrentTrackerPeerProvider: TorrentTrackerManagerDelegate {
+    func torrentTrackerManager(_ sender: TorrentTrackerManager, gotNewPeers peers: [TorrentPeerInfo]) {
+        for (key, value) in trackerMangerDict {
+            if value.manager === sender {
+                delegate?.torrentTrackerPeerProvider(self, got: peers, for: key.id)
+            }
+        }
     }
     
-    func torrentTracker(_ sender: TorrentTrackerProtocol, receivedErrorMessage errorMessage: String) {
-        print("Error: Tracker error occurred: \(errorMessage)")
+    func torrentTrackerManagerAnnonuceInfo(_ sender: TorrentTrackerManager) -> TorrentTrackerManagerAnnonuceInfo {
+        delegate?.torrentTrackerPeerProvider(self) ?? .EMPTY_INFO
     }
 }

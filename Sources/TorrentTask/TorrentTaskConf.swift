@@ -10,6 +10,7 @@ import TorrentModel
 
 struct TorrentTaskConf: Hashable {
     let torrent: TorrentModel
+    // A string of length 20 which this downloader uses as its id
     let id: Data
     let idString: String
     
@@ -17,8 +18,10 @@ struct TorrentTaskConf: Hashable {
     init(torrent: TorrentModel, torrentID: Data) {
         self.torrent = torrent
         self.id = torrentID
-        self.idString = torrentID.hexEncodedString
+        self.idString = try! torrentID.toString(using: .utf8)
     }
+    
+    static let MAX_ACTIVE_TORRENT = 10
     
     static func makePeerID() -> Data {
         var peerID = "-BD0000-"

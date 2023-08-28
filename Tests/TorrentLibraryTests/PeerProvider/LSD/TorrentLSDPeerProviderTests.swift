@@ -12,13 +12,11 @@ import TorrentModel
 class TorrentLSDProviderDelegateSpy: TorrentLSDPeerProviderDelegate {
     var torrentLSDPeerProviderCalled = false
     var newPeer: TorrentPeerInfo? = nil
-    var infoHashes: [String]? = nil
-    var clientID: String? = nil
+    var clientID: Data? = nil
     
-    func torrentLSDPeerProvider(_ sender: TorrentLibrary.TorrentLSDPeerProviderProtocol, got newPeer: TorrentLibrary.TorrentPeerInfo, with infoHashes: [String], for clientID: String?) {
-        torrentLSDPeerProviderCalled = true
+    func torrentLSDPeerProvider(_ sender: TorrentLibrary.TorrentLSDPeerProviderProtocol, got newPeer: TorrentLibrary.TorrentPeerInfo, for clientID: Data) {
+        self.torrentLSDPeerProviderCalled = true
         self.newPeer = newPeer
-        self.infoHashes = infoHashes
         self.clientID = clientID
     }
 }
@@ -27,7 +25,7 @@ final class TorrentLSDPeerProviderTests: XCTestCase {
     var sut: TorrentLSDPeerProvider!
     var torrentLSDDelegateSpy: TorrentLSDProviderDelegateSpy!
     var udpConnection: UDPConnectionStub!
-    var clientID: String!
+    var clientID: Data!
     var infoHashHex: String!
     
     var taskConfs: [TorrentTaskConf]!
@@ -48,9 +46,7 @@ final class TorrentLSDPeerProviderTests: XCTestCase {
         try super.setUpWithError()
         
         let infoHash = torrent1.infoHashSHA1
-        let id = TorrentPeer.makePeerID()
         self.infoHashHex = infoHash.hexEncodedString
-        self.clientID = "dt-client" + String(urlEncodingData: id)
         
         self.udpConnection = UDPConnectionStub()
         self.torrentLSDDelegateSpy = TorrentLSDProviderDelegateSpy()
@@ -65,6 +61,8 @@ final class TorrentLSDPeerProviderTests: XCTestCase {
             TorrentTaskConf(torrent: torrent1, torrentID: TorrentTaskConf.makePeerID()),
             TorrentTaskConf(torrent: torrent2, torrentID: TorrentTaskConf.makePeerID())
         ]
+        
+        self.clientID = self.taskConfs[0].id
     }
 
     override func tearDownWithError() throws {
@@ -107,12 +105,14 @@ final class TorrentLSDPeerProviderTests: XCTestCase {
         sut.setupLSDProvider(taskConf: taskConfs[0])
         sut.stopLSDPeerProvider(for: taskConfs[0])
         
-        sut.forceReannounce()
+        sut.startLSDProviderImediatly(for: taskConfs[0])
         
         XCTAssertFalse(torrentLSDDelegateSpy.torrentLSDPeerProviderCalled)
     }
     
     func testLSDDataReceiving() {
+        sut.setupLSDProvider(taskConf: self.taskConfs[0])
+        
         let header = "BT-SEARCH * HTTP/1.1\r\n"
         let port: UInt16 = 6771
         let remoteHost = "10.10.10.10"
@@ -124,11 +124,9 @@ final class TorrentLSDPeerProviderTests: XCTestCase {
         
         XCTAssertTrue(torrentLSDDelegateSpy.torrentLSDPeerProviderCalled)
         XCTAssertNotNil(torrentLSDDelegateSpy.clientID)
-        XCTAssertNotNil(torrentLSDDelegateSpy.infoHashes)
         XCTAssertNotNil(torrentLSDDelegateSpy.newPeer)
         
         XCTAssertEqual(torrentLSDDelegateSpy.clientID, self.clientID)
-        XCTAssertEqual(torrentLSDDelegateSpy.infoHashes![0], infoHashHex)
         XCTAssertEqual(torrentLSDDelegateSpy.newPeer?.ip, remoteHost)
         XCTAssertEqual(torrentLSDDelegateSpy.newPeer?.port, port)
     }

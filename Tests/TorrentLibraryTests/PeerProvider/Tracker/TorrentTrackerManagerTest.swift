@@ -1,5 +1,5 @@
 //
-//  TorrentTrackerPeerProviderTest.swift
+//  TorrentTrackerManagerTest.swift
 //  
 //
 //  Created by Wynn Zhang on 8/20/23.
@@ -44,18 +44,18 @@ class TorrentTrackerStub: TorrentTrackerProtocol {
     }
 }
 
-class TorrentTrackerPeerProviderDelegateStub: TorrentTrackerPeerProviderDelegate {
-    func torrentTrackerManager(_ sender: TorrentTrackerPeerProvider, gotNewPeers peers: [TorrentPeerInfo]) {
+class TorrentTrackerManagerDelegateStub: TorrentTrackerManagerDelegate {
+    func torrentTrackerManager(_ sender: TorrentTrackerManager, gotNewPeers peers: [TorrentPeerInfo]) {
         
     }
     
     var torrentTrackerManagerAnnonuceInfoResult = TorrentTrackerManagerAnnonuceInfo(numberOfBytesRemaining: 0, numberOfBytesUploaded: 0, numberOfBytesDownloaded: 0, numberOfPeersToFetch: 0)
-    func torrentTrackerManagerAnnonuceInfo(_ sender: TorrentTrackerPeerProvider) -> TorrentTrackerManagerAnnonuceInfo {
+    func torrentTrackerManagerAnnonuceInfo(_ sender: TorrentTrackerManager) -> TorrentTrackerManagerAnnonuceInfo {
         return torrentTrackerManagerAnnonuceInfoResult
     }
 }
 
-final class TorrentTrackerPeerProviderTest: XCTestCase {
+final class TorrentTrackerManagerTest: XCTestCase {
     let model: TorrentModel = {
         let bundle = Bundle.module
         
@@ -67,14 +67,21 @@ final class TorrentTrackerPeerProviderTest: XCTestCase {
     let clientId = "-BD0000-bxa]N#IRKqv`"
     let clientIdData = "-BD0000-bxa]N#IRKqv`".data(using: .ascii)!
     let listeningPort: UInt16 = 123
+    var conf: TorrentTaskConf!
     
     let announceInfo = TorrentTrackerManagerAnnonuceInfo(numberOfBytesRemaining: 1,
                                                          numberOfBytesUploaded: 2,
                                                          numberOfBytesDownloaded: 3,
                                                          numberOfPeersToFetch: 4)
     
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        
+        self.conf = TorrentTaskConf(torrent: model, torrentID: clientIdData)
+    }
+    
     func test_createsTrackers() {
-        let sut = TorrentTrackerPeerProvider(torrentModel: model, peerID: clientIdData, port: listeningPort)
+        let sut = TorrentTrackerManager(torrentConf: conf, port: listeningPort)
         
         XCTAssertEqual(sut.trackers.count, 2)
         
@@ -108,10 +115,9 @@ final class TorrentTrackerPeerProviderTest: XCTestCase {
     func test_startWillAnnounceToTrackers() {
         // Given
         let tracker = TorrentTrackerStub()
-        let delegate = TorrentTrackerPeerProviderDelegateStub()
+        let delegate = TorrentTrackerManagerDelegateStub()
         
-        let sut = TorrentTrackerPeerProvider(torrentModel: model,
-                                        peerID: clientIdData,
+        let sut = TorrentTrackerManager(torrentConf: conf,
                                         port: listeningPort,
                                         trackers: [tracker])
         
@@ -129,7 +135,8 @@ final class TorrentTrackerPeerProviderTest: XCTestCase {
             return
         }
         XCTAssertEqual(announceClientParameters.peerId, clientId)
-        XCTAssertEqual(announceClientParameters.port, listeningPort)
+        XCTAssertEqual(announceClientParameters.port, TorrentTrackerManager.DEFAULT_PORT)
+        XCTAssertEqual(listeningPort, sut.port)
         XCTAssertEqual(announceClientParameters.event, .started)
         XCTAssertEqual(announceClientParameters.infoHash, model.infoHashSHA1)
         XCTAssertEqual(announceClientParameters.numberOfBytesRemaining, announceInfo.numberOfBytesRemaining)
@@ -142,10 +149,9 @@ final class TorrentTrackerPeerProviderTest: XCTestCase {
         
         // Given
         let tracker = TorrentTrackerStub()
-        let delegate = TorrentTrackerPeerProviderDelegateStub()
+        let delegate = TorrentTrackerManagerDelegateStub()
         
-        let sut = TorrentTrackerPeerProvider(torrentModel: model,
-                                        peerID: clientIdData,
+        let sut = TorrentTrackerManager(torrentConf: conf,
                                         port: listeningPort,
                                         trackers: [tracker])
         
@@ -168,9 +174,8 @@ final class TorrentTrackerPeerProviderTest: XCTestCase {
         
         // Given
         let tracker = TorrentTrackerStub()
-        let delegate = TorrentTrackerPeerProviderDelegateStub()
-        let sut = TorrentTrackerPeerProvider(torrentModel: model,
-                                        peerID: clientIdData,
+        let delegate = TorrentTrackerManagerDelegateStub()
+        let sut = TorrentTrackerManager(torrentConf: conf,
                                         port: listeningPort,
                                         trackers: [tracker])
         

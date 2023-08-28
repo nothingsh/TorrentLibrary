@@ -11,6 +11,11 @@ struct LSDAnnounce {
     static let ENCODING: String.Encoding = .utf16
     static let HEADER = "BT-SEARCH * HTTP/1.1\r\n"
     
+    // broadcast address and port in LAN
+    static let LSD_IPv6_HOST = "ff15::efc0:988f"
+    static let LSD_IPv4_HOST = "239.192.152.143"
+    static let LSD_LISTEN_PORT: UInt16 = 6772
+    
     let host: String
     let port: String
     let infoHashes: [String]
@@ -22,7 +27,7 @@ struct LSDAnnounce {
     /// - Parameter port: on which the bittorrent client is listening in base-10, ascii
     /// - Parameter infoHash: hex-encoded (40 character) infohash, An announce may contain multiple, consecutive Infohash headers to announce the participation in more than one torrent.
     /// - Parameter cookie: opaque value, allowing the sending client to filter out its own announces if it receives them via multicast loopback
-    init(host: String, port: String, infoHashes: [String], cookie: String?) {
+    init(host: String = Self.LSD_IPv4_HOST, port: String = String(Self.LSD_LISTEN_PORT), infoHashes: [String], cookie: String?) {
         self.host = host
         self.port = port
         self.infoHashes = infoHashes

@@ -19,7 +19,7 @@ class TorrentListenerSocket: NSObject {
     var listenSocket: GCDAsyncSocket!
     let infoHash: Data
     let clientID: Data
-    let port: UInt16 = TorrentTrackerPeerProvider.DEFAULT_PORT
+    let port: UInt16 = TorrentTrackerManager.DEFAULT_PORT
     
     init(infoHash: Data, clientID: Data) {
         self.infoHash = infoHash
