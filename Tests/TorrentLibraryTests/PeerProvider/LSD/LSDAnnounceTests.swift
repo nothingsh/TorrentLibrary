@@ -19,7 +19,7 @@ final class LSDAnnounceTests: XCTestCase {
 
     override func setUpWithError() throws {
         let infoHash = Data(repeating: 0, count: 20)
-        self.infoHashHex = String(urlEncodingData: infoHash)
+        self.infoHashHex = infoHash.hexEncodedString
         self.peerID = "dt-client" + String(urlEncodingData: TorrentPeer.makePeerID())
         
         lsdAnnounceString = "\(header)Host: \(host)\r\nPort: \(port)\r\nInfohash: \(infoHashHex!)\r\ncookie: \(peerID!)\r\n\r\n\r\n"
@@ -37,7 +37,7 @@ final class LSDAnnounceTests: XCTestCase {
         XCTAssertEqual(announceInfo.host, host)
         XCTAssertEqual(UInt16(announceInfo.port), port)
         XCTAssertEqual(announceInfo.cookie, peerID)
-        XCTAssertEqual(announceInfo.infoHash, infoHashHex)
+        XCTAssertEqual(announceInfo.infoHashes[0], infoHashHex)
     }
     
     func testLSDStringGenerating() throws {

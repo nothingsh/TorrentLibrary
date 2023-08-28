@@ -34,6 +34,10 @@ extension Data {
         CC_SHA1((self as NSData).bytes, CC_LONG(self.count), &digest)
         return Data(bytes: digest, count: outputLength)
     }
+    
+    var hexEncodedString: String {
+        return self.map { String(format: "%02hhX", $0) }.joined()
+    }
 }
 
 extension UInt8 {

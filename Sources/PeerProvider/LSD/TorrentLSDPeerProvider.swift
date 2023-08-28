@@ -9,76 +9,8 @@ import Foundation
 
 enum TorrentLSDPeerProviderError: Error {
     case unexpectedAnnounceData
+    case unexpectedInfoHashesLength
     case unexpectedAnnounceContent
-}
-
-struct LSDAnnounce {
-    static let ENCODING: String.Encoding = .utf16
-    static let HEADER = "BT-SEARCH * HTTP/1.1\r\n"
-    
-    let host: String
-    let port: String
-    let infoHash: String
-    let cookie: String?
-    
-    init(host: String, port: String, infoHash: String, cookie: String?) {
-        self.host = host
-        self.port = port
-        self.infoHash = infoHash
-        self.cookie = cookie
-    }
-    
-    init(data: Data) throws {
-        guard let announceString = String(data: data, encoding: LSDAnnounce.ENCODING) else {
-            throw TorrentLSDPeerProviderError.unexpectedAnnounceData
-        }
-        
-        let announceArray = announceString.split(omittingEmptySubsequences: true, whereSeparator: { $0 == "\r\n" })
-        
-        var announceDict = [String: String]()
-        for subString in announceArray {
-            let newString = String(subString)
-            let pairs = newString.split(whereSeparator: { $0 == ":" })
-            
-            if pairs.count == 2 {
-                let key = String(pairs[0])
-                let values = pairs[1].split(whereSeparator: { $0 == " " })
-                if values.count == 1 {
-                    let value = String(values[0])
-                    announceDict[key] = value
-                }
-            }
-        }
-        
-        guard let host = announceDict["Host"] else {
-            throw TorrentLSDPeerProviderError.unexpectedAnnounceContent
-        }
-        
-        guard let port = announceDict["Port"] else {
-            throw TorrentLSDPeerProviderError.unexpectedAnnounceContent
-        }
-        
-        guard let infoHash = announceDict["Infohash"] else {
-            throw TorrentLSDPeerProviderError.unexpectedAnnounceContent
-        }
-        
-        var cookie: String?
-        if let cookieContent = announceDict["cookie"] {
-            cookie = cookieContent
-        }
-        
-        self.init(host: host, port: port, infoHash: infoHash, cookie: cookie)
-    }
-    
-    func announceString() -> String {
-        let hostStr = "Host: \(host)\r\n"
-        let portStr = "Port: \(port)\r\n"
-        let infoHashStr = "Infohash: \(infoHash)\r\n"
-        let cookieStr = (cookie == nil) ? "" : "cookie: \(cookie!)\r\n"
-        let endStr = "\r\n\r\n"
-        
-        return LSDAnnounce.HEADER + hostStr + portStr + infoHashStr + cookieStr + endStr
-    }
 }
 
 protocol TorrentLSDPeerProviderProtocol: AnyObject {
@@ -86,7 +18,7 @@ protocol TorrentLSDPeerProviderProtocol: AnyObject {
 }
 
 protocol TorrentLSDPeerProviderDelegate: AnyObject {
-    func torrentLSDPeerProvider(_ sender: TorrentLSDPeerProviderProtocol, got newPeer: TorrentPeerInfo, with infoHash: String, for clientID: String?)
+    func torrentLSDPeerProvider(_ sender: TorrentLSDPeerProviderProtocol, got newPeer: TorrentPeerInfo, with infoHashes: [String], for clientID: String?)
 }
 
 /// local service discovery
@@ -94,9 +26,7 @@ class TorrentLSDPeerProvider: TorrentLSDPeerProviderProtocol {
     weak var delegate: TorrentLSDPeerProviderDelegate?
     
     private let udpConnection: UDPConnectionProtocol
-    private let peerID: String
-    private let infoHash: Data
-    private let announceTimeInterval: TimeInterval = 300
+    private let announceTimeInterval: TimeInterval = 120
     
     private lazy var announceTimer: Timer = { [unowned self] in
         return Timer.scheduledTimer(timeInterval: self.announceTimeInterval,
@@ -111,22 +41,48 @@ class TorrentLSDPeerProvider: TorrentLSDPeerProviderProtocol {
     static let LSD_IPv4_HOST = "239.192.152.143"
     static let LSD_PORT: UInt16 = 6771
     
-    init(clientID: Data, infoHash: Data, udpConnection: UDPConnectionProtocol = UDPConnection()) throws {
-        self.peerID = "dt-client" + String(urlEncodingData: clientID)
-        // sha1 of info raw data
-        self.infoHash = infoHash
+    /// tag represents the task' status
+    var taskConfs: Array<(conf: TorrentTaskConf, status: Bool)> = []
+    var taskIndex = 0
+    
+    init(udpConnection: UDPConnectionProtocol = UDPConnection()) throws {
         self.udpConnection = udpConnection
         
         self.udpConnection.delegate = self
         try self.udpConnection.listening(on: Self.LSD_PORT)
     }
     
+    func setupLSDProvider(taskConf: TorrentTaskConf) {
+        self.taskConfs.append((conf: taskConf, status: true))
+    }
+    
+    /// announce torrent tasks one by one with 2 minites interval
     @objc func announceClient() {
-        let infoHashString = String(urlEncodingData: self.infoHash)
-        let announceInfo = LSDAnnounce(host: Self.LSD_IPv4_HOST, port: String(Self.LSD_PORT), infoHash: infoHashString, cookie: peerID)
+        let annouceConf = self.taskConfs[self.taskIndex].conf
+        
+        let infoHashes = self.taskConfs.filter({ $0.status }).map({ $0.conf.idString })
+        let announceInfo = LSDAnnounce(host: Self.LSD_IPv4_HOST, port: String(Self.LSD_PORT), infoHashes: infoHashes, cookie: annouceConf.idString)
         let announceData = announceInfo.announceString().data(using: LSDAnnounce.ENCODING)!
         
         udpConnection.send(announceData, toHost: Self.LSD_IPv4_HOST, port: Self.LSD_PORT, timeout: 10)
+    }
+    
+    func stopLSDPeerProvider(for conf: TorrentTaskConf) {
+        if let index = self.taskConfs.firstIndex(where: { $0.conf == conf }) {
+            self.taskConfs[index].status = false
+        }
+    }
+    
+    func resumeLSDPeerProvider(for conf: TorrentTaskConf) {
+        if let index = self.taskConfs.firstIndex(where: { $0.conf == conf }) {
+            self.taskConfs[index].status = true
+        }
+    }
+    
+    func removeLSDPeerProvider(for conf: TorrentTaskConf) {
+        if let index = self.taskConfs.firstIndex(where: { $0.conf == conf }) {
+            self.taskConfs.remove(at: index)
+        }
     }
     
     func forceReannounce() {
@@ -140,14 +96,18 @@ extension TorrentLSDPeerProvider: UDPConnectionDelegate {
             #if DEBUG
             if let port = UInt16(announceInfo.port) {
                 let peerInfo = TorrentPeerInfo(ip: host, port: port)
-                delegate?.torrentLSDPeerProvider(self, got: peerInfo, with: announceInfo.infoHash, for: announceInfo.cookie)
+                delegate?.torrentLSDPeerProvider(self, got: peerInfo, with: announceInfo.infoHashes, for: announceInfo.cookie)
             }
             #else
             // filter out own announces if it receives them via multicast loopback by checking cookie
-            if announceInfo.cookie != self.peerID {
-                if let port = UInt16(announceInfo.port) {
+            if !self.taskConfs.contains(where: { $0.conf.idString == announceInfo.cookie }) {
+                // make sure we need these torrent
+                let needInfoHashes = announceInfo.infoHashes.filter { infoHash in
+                    self.taskConfs.contains(where: { $0.conf.infoHash.hexEncodedString == infoHash })
+                }
+                if let port = UInt16(announceInfo.port), needInfoHashes.count != 0 {
                     let peerInfo = TorrentPeerInfo(ip: host, port: port)
-                    delegate?.torrentLSDPeerProvider(self, got: peerInfo, with: announceInfo.infoHash, for: announceInfo.cookie)
+                    delegate?.torrentLSDPeerProvider(self, got: peerInfo, with: announceInfo.infoHashes, for: announceInfo.cookie)
                 }
             }
             #endif

@@ -6,18 +6,19 @@
 //
 
 import XCTest
+import TorrentModel
 @testable import TorrentLibrary
 
 class TorrentLSDProviderDelegateSpy: TorrentLSDPeerProviderDelegate {
     var torrentLSDPeerProviderCalled = false
     var newPeer: TorrentPeerInfo? = nil
-    var infoHash: String? = nil
+    var infoHashes: [String]? = nil
     var clientID: String? = nil
     
-    func torrentLSDPeerProvider(_ sender: TorrentLibrary.TorrentLSDPeerProviderProtocol, got newPeer: TorrentLibrary.TorrentPeerInfo, with infoHash: String, for clientID: String?) {
+    func torrentLSDPeerProvider(_ sender: TorrentLibrary.TorrentLSDPeerProviderProtocol, got newPeer: TorrentLibrary.TorrentPeerInfo, with infoHashes: [String], for clientID: String?) {
         torrentLSDPeerProviderCalled = true
         self.newPeer = newPeer
-        self.infoHash = infoHash
+        self.infoHashes = infoHashes
         self.clientID = clientID
     }
 }
@@ -29,26 +30,86 @@ final class TorrentLSDPeerProviderTests: XCTestCase {
     var clientID: String!
     var infoHashHex: String!
     
+    var taskConfs: [TorrentTaskConf]!
+    
+    let torrent1: TorrentModel = {
+        let torrentURL = Bundle.module.url(forResource: "TrackerManagerTests", withExtension: "torrent")
+        let data = try! Data(contentsOf: torrentURL!)
+        return try! TorrentModel.decode(data: data)
+    }()
+    
+    let torrent2: TorrentModel = {
+        let torrentURL = Bundle.module.url(forResource: "TestText", withExtension: "torrent")
+        let data = try! Data(contentsOf: torrentURL!)
+        return try! TorrentModel.decode(data: data)
+    }()
+    
     override func setUpWithError() throws {
         try super.setUpWithError()
         
-        let infoHash = Data(repeating: 0, count: 20)
+        let infoHash = torrent1.infoHashSHA1
         let id = TorrentPeer.makePeerID()
-        self.infoHashHex = String(urlEncodingData: infoHash)
+        self.infoHashHex = infoHash.hexEncodedString
         self.clientID = "dt-client" + String(urlEncodingData: id)
         
         self.udpConnection = UDPConnectionStub()
         self.torrentLSDDelegateSpy = TorrentLSDProviderDelegateSpy()
         do {
-            sut = try TorrentLSDPeerProvider(clientID: id, infoHash: infoHash, udpConnection: udpConnection)
+            sut = try TorrentLSDPeerProvider(udpConnection: udpConnection)
         } catch {
             print("Error: \(error.localizedDescription)")
         }
         sut.delegate = torrentLSDDelegateSpy
+        
+        self.taskConfs = [
+            TorrentTaskConf(torrent: torrent1, torrentID: TorrentTaskConf.makePeerID()),
+            TorrentTaskConf(torrent: torrent2, torrentID: TorrentTaskConf.makePeerID())
+        ]
     }
 
     override func tearDownWithError() throws {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
+    }
+    
+    func testSetupLSDProvider() {
+        sut.setupLSDProvider(taskConf: taskConfs[0])
+        sut.setupLSDProvider(taskConf: taskConfs[1])
+        
+        XCTAssertEqual(sut.taskConfs.count, taskConfs.count)
+    }
+    
+    func testStopLSDProvider() {
+        sut.setupLSDProvider(taskConf: taskConfs[0])
+        
+        sut.stopLSDPeerProvider(for: taskConfs[0])
+        
+        XCTAssertEqual(sut.taskConfs.first!.status, false)
+    }
+    
+    func testResumeLSDProvider() {
+        sut.setupLSDProvider(taskConf: taskConfs[0])
+        
+        sut.stopLSDPeerProvider(for: taskConfs[0])
+        sut.resumeLSDPeerProvider(for: taskConfs[0])
+        
+        XCTAssertEqual(sut.taskConfs.first!.status, true)
+    }
+    
+    func testRemoveLSDProvider() {
+        sut.setupLSDProvider(taskConf: taskConfs[0])
+        
+        sut.removeLSDPeerProvider(for: taskConfs[0])
+        
+        XCTAssertEqual(sut.taskConfs.count, 0)
+    }
+    
+    func testStopAnnounce() {
+        sut.setupLSDProvider(taskConf: taskConfs[0])
+        sut.stopLSDPeerProvider(for: taskConfs[0])
+        
+        sut.forceReannounce()
+        
+        XCTAssertFalse(torrentLSDDelegateSpy.torrentLSDPeerProviderCalled)
     }
     
     func testLSDDataReceiving() {
@@ -63,11 +124,11 @@ final class TorrentLSDPeerProviderTests: XCTestCase {
         
         XCTAssertTrue(torrentLSDDelegateSpy.torrentLSDPeerProviderCalled)
         XCTAssertNotNil(torrentLSDDelegateSpy.clientID)
-        XCTAssertNotNil(torrentLSDDelegateSpy.infoHash)
+        XCTAssertNotNil(torrentLSDDelegateSpy.infoHashes)
         XCTAssertNotNil(torrentLSDDelegateSpy.newPeer)
         
         XCTAssertEqual(torrentLSDDelegateSpy.clientID, self.clientID)
-        XCTAssertEqual(torrentLSDDelegateSpy.infoHash, infoHashHex)
+        XCTAssertEqual(torrentLSDDelegateSpy.infoHashes![0], infoHashHex)
         XCTAssertEqual(torrentLSDDelegateSpy.newPeer?.ip, remoteHost)
         XCTAssertEqual(torrentLSDDelegateSpy.newPeer?.port, port)
     }
