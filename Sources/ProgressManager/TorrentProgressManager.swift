@@ -65,64 +65,86 @@ struct TorrentProgress {
 }
 
 class TorrentProgressManager {
+    private let fileManager: TorrentFileManager
+    private var progressDict: [TorrentTaskConf: TorrentProgress]
     
-    let fileManager: TorrentFileManager
-    private(set) var progress: TorrentProgress
-    
-    var model: TorrentModel {
-        return fileManager.model
+    init() {
+        self.fileManager = TorrentFileManager()
+        self.progressDict = [:]
     }
     
-    init(fileManager: TorrentFileManager, progress: TorrentProgress) {
+    #if DEBUG
+    init(fileManager: TorrentFileManager, handles: [FileHandleProtocol], conf: TorrentTaskConf) {
         self.fileManager = fileManager
-        self.progress = progress
-    }
-    
-    convenience init(model: TorrentModel, rootDirectory: String) throws {
-        let downloadDirectory = rootDirectory + "/" + Self.sensibleDownloadDirectoryName(info: model.info)
-        let fileManager = try TorrentFileManager(torrent: model, rootDirectory: downloadDirectory)
+        self.progressDict = [:]
         
-        let bitFieldSize = model.info.pieces.count
+        self.progressDict[conf] = TorrentProgress(size: conf.info.pieces.count)
+        self.fileManager.setupFileStreamHandler(for: conf, with: handles)
+    }
+    #endif
+    
+    func setupProgressMananger(for conf: TorrentTaskConf) {
         let progress: TorrentProgress
-        if let bitField = try? TorrentFileManager.loadSavedProgressBitfield(infoHash: model.infoHashSHA1, count: bitFieldSize) {
+        
+        let bitFieldSize = conf.info.pieces.count
+        if let bitField = try? TorrentFileManager.loadSavedProgressBitfield(infoHash: conf.infoHash, count: bitFieldSize) {
             progress = TorrentProgress(bitField: bitField)
         } else {
             progress = TorrentProgress(size: bitFieldSize)
         }
         
-        self.init(fileManager: fileManager, progress: progress)
+        self.progressDict[conf] = progress
+        
+        try? self.fileManager.setupFileStreamHandler(for: conf)
     }
     
-    public func forceReCheck() {
-        let bitField = fileManager.reCheckProgress()
-        progress = TorrentProgress(bitField: bitField)
-        TorrentFileManager.saveProgressBitfield(infoHash: model.infoHashSHA1, bitField: progress.bitField)
+    func removeProgressMananger(for conf: TorrentTaskConf) {
+        self.progressDict.removeValue(forKey: conf)
+        self.fileManager.removeFileStreamHandler(for: conf)
     }
     
-    func getNextPieceToDownload(from availablePieces: BitField) -> TorrentPieceRequest? {
-        guard !progress.complete else { return nil }
+    func forceReCheck(for conf: TorrentTaskConf) {
+        let bitField = fileManager.reCheckProgress(for: conf)
+        
+        let progress = TorrentProgress(bitField: bitField)
+        self.progressDict[conf] = progress
+        TorrentFileManager.saveProgressBitfield(infoHash: conf.infoHash, bitField: progress.bitField)
+    }
+    
+    func getNextPieceToDownload(from availablePieces: BitField, for conf: TorrentTaskConf) -> TorrentPieceRequest? {
+        guard progressDict[conf] != nil, !(progressDict[conf]!).complete else {
+            return nil
+        }
         
         for (i, isSet) in availablePieces.lazy.pseudoRandomized where isSet {
-            if !progress.hasPiece(i) && !progress.isCurrentlyDownloading(piece: i) {
-                progress.setCurrentlyDownloading(piece: i)
+            if !(progressDict[conf]!).hasPiece(i) && !(progressDict[conf]!).isCurrentlyDownloading(piece: i) {
+                (progressDict[conf]!).setCurrentlyDownloading(piece: i)
                 return TorrentPieceRequest(
                     pieceIndex: i,
-                    size: model.info.lengthOfPiece(at: i)!,
-                    checksum: model.info.pieces[i]
+                    size: conf.info.lengthOfPiece(at: i)!,
+                    checksum: conf.info.pieces[i]
                 )
             }
         }
         return nil
     }
     
-    func setDownloadedPiece(_ piece: Data, pieceIndex: Int) throws {
-        progress.finishedDownloading(piece: pieceIndex)
-        try fileManager.writeDataToFiles(at: pieceIndex, with: piece)
-        TorrentFileManager.saveProgressBitfield(infoHash: model.infoHashSHA1, bitField: progress.bitField)
+    func setDownloadedPiece(with piece: Data, at pieceIndex: Int, for conf: TorrentTaskConf) throws {
+        guard progressDict[conf] != nil else {
+            return
+        }
+        
+        (progressDict[conf]!).finishedDownloading(piece: pieceIndex)
+        try fileManager.writeDataToFiles(at: pieceIndex, with: piece, for: conf)
+        TorrentFileManager.saveProgressBitfield(infoHash: conf.infoHash, bitField: (progressDict[conf]!).bitField)
     }
     
-    func setLostPiece(at index: Int) {
-        progress.setLostPiece(index)
+    func setLostPiece(at index: Int, for conf: TorrentTaskConf) {
+        (progressDict[conf]!).setLostPiece(index)
+    }
+    
+    func getProgress(for conf: TorrentTaskConf) -> TorrentProgress? {
+        return progressDict[conf]
     }
     
     static func sensibleDownloadDirectoryName(info: TorrentModelInfo) -> String {

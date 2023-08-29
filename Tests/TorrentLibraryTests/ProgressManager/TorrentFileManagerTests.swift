@@ -23,12 +23,16 @@ final class TorrentFileManagerTests: XCTestCase {
     
     var fileHandle: FileHandleFake!
     var sut: TorrentFileManager!
+    var conf: TorrentTaskConf!
     
     override func setUp() {
         super.setUp()
         
         fileHandle = FileHandleFake(data: Data(repeating: 0, count: model.info.length ?? 0))
-        sut = TorrentFileManager(torrent: model, rootDirectory: "/", fileHandles: [fileHandle])
+        conf = TorrentTaskConf(torrent: model, torrentID: TorrentTaskConf.makePeerID())
+        sut = TorrentFileManager()
+        
+        sut.setupFileStreamHandler(for: conf, with: [fileHandle])
     }
     
     func test_canSetPiece() {
@@ -36,7 +40,7 @@ final class TorrentFileManagerTests: XCTestCase {
         let pieceLength = model.info.pieceLength
         
         // When
-        try! sut.writeDataToFiles(at: 1, with: piece1)
+        try! sut.writeDataToFiles(at: 1, with: piece1, for: conf)
         
         // Then
         XCTAssertEqual(fileHandle.data.correctingIndicies[pieceLength..<pieceLength*2], piece1)
@@ -44,10 +48,10 @@ final class TorrentFileManagerTests: XCTestCase {
     
     func test_canGetPiece() {
         // Given
-        try! sut.writeDataToFiles(at: 1, with: piece1)
+        try! sut.writeDataToFiles(at: 1, with: piece1, for: conf)
         
         // When
-        let result = try! sut.readDataFromFiles(at: 1)
+        let result = try! sut.readDataFromFiles(at: 1, for: conf)
         
         // Then
         XCTAssertEqual(result, piece1)

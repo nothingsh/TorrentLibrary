@@ -13,4 +13,12 @@ extension URL {
         components.scheme = scheme
         return components.url!
     }
+    
+    func appendingDirectoryPathComponent(with dir: String) -> URL {
+        if #available(macOS 11.0, iOS 14.0, watchOS 7.0, *) {
+            return self.appendingPathComponent(dir, conformingTo: .directory)
+        } else {
+            return self.appendingPathComponent(dir, isDirectory: true)
+        }
+    }
 }
