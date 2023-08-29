@@ -50,6 +50,21 @@ class TorrentPeerManager {
         return speedBySampleInterval.toByteString()
     }
     
+    init(conf: TorrentTaskConf) {
+        self.clientID = conf.id
+        self.infoHash = conf.infoHash
+        self.bitFieldSize = conf.bitFieldSize
+        
+        self.downloadSpeedTracker = CombinedNetworkSpeedTracker { [unowned self] in
+            return self.peers.map { $0.downloadSpeedTracker }
+        }
+        
+        self.uploadSpeedTrackers = CombinedNetworkSpeedTracker { [unowned self] in
+            return self.peers.map { $0.uploadSpeedTracker }
+        }
+    }
+    
+    #if DEBUG
     init(clientID: Data, infoHash: Data, bitFieldSize: Int) {
         self.clientID = clientID
         self.infoHash = infoHash
@@ -63,6 +78,7 @@ class TorrentPeerManager {
             return self.peers.map { $0.uploadSpeedTracker }
         }
     }
+    #endif
     
     // Exposed for testing
     var peerFactory = TorrentPeer.init(peerInfo: infoHash: bitFieldSize:)

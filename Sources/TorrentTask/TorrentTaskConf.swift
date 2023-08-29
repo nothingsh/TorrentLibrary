@@ -85,4 +85,8 @@ extension TorrentTaskConf {
     var rootDirectory: String {
         rootURL.absoluteString
     }
+    
+    var bitFieldSize: Int {
+        torrent.info.pieces.count
+    }
 }
