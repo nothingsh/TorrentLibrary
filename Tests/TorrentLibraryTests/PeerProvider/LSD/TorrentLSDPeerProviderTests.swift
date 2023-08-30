@@ -12,12 +12,12 @@ import TorrentModel
 class TorrentLSDProviderDelegateSpy: TorrentLSDPeerProviderDelegate {
     var torrentLSDPeerProviderCalled = false
     var newPeer: TorrentPeerInfo? = nil
-    var clientID: Data? = nil
+    var conf: TorrentTaskConf? = nil
     
-    func torrentLSDPeerProvider(_ sender: TorrentLibrary.TorrentLSDPeerProviderProtocol, got newPeer: TorrentLibrary.TorrentPeerInfo, for clientID: Data) {
+    func torrentLSDPeerProvider(_ sender: TorrentLibrary.TorrentLSDPeerProviderProtocol, got newPeer: TorrentLibrary.TorrentPeerInfo, for conf: TorrentTaskConf) {
         self.torrentLSDPeerProviderCalled = true
         self.newPeer = newPeer
-        self.clientID = clientID
+        self.conf = conf
     }
 }
 
@@ -123,10 +123,10 @@ final class TorrentLSDPeerProviderTests: XCTestCase {
         sut.udpConnection(udpConnection, receivedData: lsdAnnounceData, fromHost: remoteHost)
         
         XCTAssertTrue(torrentLSDDelegateSpy.torrentLSDPeerProviderCalled)
-        XCTAssertNotNil(torrentLSDDelegateSpy.clientID)
+        XCTAssertNotNil(torrentLSDDelegateSpy.conf)
         XCTAssertNotNil(torrentLSDDelegateSpy.newPeer)
         
-        XCTAssertEqual(torrentLSDDelegateSpy.clientID, self.clientID)
+        XCTAssertEqual(torrentLSDDelegateSpy.conf!.id, self.clientID)
         XCTAssertEqual(torrentLSDDelegateSpy.newPeer?.ip, remoteHost)
         XCTAssertEqual(torrentLSDDelegateSpy.newPeer?.port, port)
     }

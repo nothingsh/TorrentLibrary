@@ -8,12 +8,12 @@
 import Foundation
 
 protocol TorrentDataTransferManagerDelegate: AnyObject {
-    func torrentPeerManager(_ sender: TorrentDataTransferManager, downloadedPieceAtIndex pieceIndex: Int, with piece: Data, for conf: TorrentTaskConf)
-    func torrentPeerManager(_ sender: TorrentDataTransferManager, failedToGetPieceAtIndex index: Int, for conf: TorrentTaskConf)
-    func torrentPeerManagerNeedsMorePeers(_ sender: TorrentDataTransferManager, for conf: TorrentTaskConf)
-    func torrentPeerManagerCurrentBitfieldForHandshake(_ sender: TorrentDataTransferManager, for conf: TorrentTaskConf) -> BitField
-    func torrentPeerManager(_ sender: TorrentDataTransferManager, nextPieceFromAvailable availablePieces: BitField, for conf: TorrentTaskConf) -> TorrentPieceRequest?
-    func torrentPeerManager(_ sender: TorrentDataTransferManager, peerRequiresPieceAtIndex index: Int, for conf: TorrentTaskConf) -> Data?
+    func torrentDataTransferManager(_ sender: TorrentDataTransferManager, downloadedPieceAtIndex pieceIndex: Int, with piece: Data, for conf: TorrentTaskConf)
+    func torrentDataTransferManager(_ sender: TorrentDataTransferManager, failedToGetPieceAtIndex index: Int, for conf: TorrentTaskConf)
+    func torrentDataTransferManagerNeedsMorePeers(_ sender: TorrentDataTransferManager, for conf: TorrentTaskConf)
+    func torrentDataTransferManagerCurrentBitfieldForHandshake(_ sender: TorrentDataTransferManager, for conf: TorrentTaskConf) -> BitField
+    func torrentDataTransferManager(_ sender: TorrentDataTransferManager, nextPieceFromAvailable availablePieces: BitField, for conf: TorrentTaskConf) -> TorrentPieceRequest?
+    func torrentDataTransferManager(_ sender: TorrentDataTransferManager, peerRequiresPieceAtIndex index: Int, for conf: TorrentTaskConf) -> Data?
 }
 
 class TorrentDataTransferManager {
@@ -30,33 +30,70 @@ class TorrentDataTransferManager {
         self.peerManagerDict[conf] = manager
     }
     
+    func stopDataTransferManager(for conf: TorrentTaskConf) {
+        self.peerManagerDict[conf]?.stopPeersConnection()
+    }
+    
+    func resumeDataTransferManager(for conf: TorrentTaskConf) {
+        self.peerManagerDict[conf]?.resumePeersConnections()
+    }
+    
     func removeDataTransferManager(for conf: TorrentTaskConf) {
         self.peerManagerDict.removeValue(forKey: conf)
+    }
+    
+    func addNewPeer(with peer: TorrentPeer, for conf: TorrentTaskConf) {
+        self.peerManagerDict[conf]?.addPeer(peer)
+    }
+    
+    func addNewPeers(with peersInfo: [TorrentPeerInfo], for conf: TorrentTaskConf) {
+        self.peerManagerDict[conf]?.addPeers(withInfo: peersInfo)
+    }
+    
+    func getPeerCount(for conf: TorrentTaskConf) -> Int {
+        let manager = peerManagerDict[conf]
+        return manager?.peers.count ?? 0
+    }
+    
+    func getDownloadSpeed(for conf: TorrentTaskConf) -> String {
+        return peerManagerDict[conf]?.downloadSpeed ?? ""
+    }
+    
+    func getUploadSpeed(for conf: TorrentTaskConf) -> String {
+        return peerManagerDict[conf]?.uploadSpeed ?? ""
+    }
+    
+    func getSeedsNumber(for conf: TorrentTaskConf) -> Int {
+        return peerManagerDict[conf]?.numberOfConnectedSeeds ?? 0
+    }
+    
+    func getPeerNumber(for conf: TorrentTaskConf) -> Int {
+        return peerManagerDict[conf]?.numberOfConnectedPeers ?? 0
     }
 }
 
 extension TorrentDataTransferManager: TorrentPeerManagerDelegate {
     func torrentPeerManager(_ sender: TorrentPeerManager, downloadedPieceAtIndex pieceIndex: Int, piece: Data) {
         if let conf = findCorespondTaskConf(sender) {
-            delegate?.torrentPeerManager(self, downloadedPieceAtIndex: pieceIndex, with: piece, for: conf)
+            delegate?.torrentDataTransferManager(self, downloadedPieceAtIndex: pieceIndex, with: piece, for: conf)
         }
     }
     
     func torrentPeerManager(_ sender: TorrentPeerManager, failedToGetPieceAtIndex index: Int) {
         if let conf = findCorespondTaskConf(sender) {
-            delegate?.torrentPeerManager(self, failedToGetPieceAtIndex: index, for: conf)
+            delegate?.torrentDataTransferManager(self, failedToGetPieceAtIndex: index, for: conf)
         }
     }
     
     func torrentPeerManagerNeedsMorePeers(_ sender: TorrentPeerManager) {
         if let conf = findCorespondTaskConf(sender) {
-            delegate?.torrentPeerManagerNeedsMorePeers(self, for: conf)
+            delegate?.torrentDataTransferManagerNeedsMorePeers(self, for: conf)
         }
     }
     
     func torrentPeerManagerCurrentBitfieldForHandshake(_ sender: TorrentPeerManager) -> BitField {
         if let conf = findCorespondTaskConf(sender), let delegate = self.delegate {
-            return delegate.torrentPeerManagerCurrentBitfieldForHandshake(self, for: conf)
+            return delegate.torrentDataTransferManagerCurrentBitfieldForHandshake(self, for: conf)
         } else {
             fatalError("TorrentDataTransferManager: can get current bitfield for handshake")
         }
@@ -64,7 +101,7 @@ extension TorrentDataTransferManager: TorrentPeerManagerDelegate {
     
     func torrentPeerManager(_ sender: TorrentPeerManager, nextPieceFromAvailable availablePieces: BitField) -> TorrentPieceRequest? {
         if let conf = findCorespondTaskConf(sender) {
-            return delegate?.torrentPeerManager(self, nextPieceFromAvailable: availablePieces, for: conf)
+            return delegate?.torrentDataTransferManager(self, nextPieceFromAvailable: availablePieces, for: conf)
         } else {
             return nil
         }
@@ -72,7 +109,7 @@ extension TorrentDataTransferManager: TorrentPeerManagerDelegate {
     
     func torrentPeerManager(_ sender: TorrentPeerManager, peerRequiresPieceAtIndex index: Int) -> Data? {
         if let conf = findCorespondTaskConf(sender) {
-            return delegate?.torrentPeerManager(self, peerRequiresPieceAtIndex: index, for: conf)
+            return delegate?.torrentDataTransferManager(self, peerRequiresPieceAtIndex: index, for: conf)
         } else {
             return nil
         }

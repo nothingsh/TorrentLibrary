@@ -9,7 +9,7 @@ import Foundation
 import TorrentModel
 
 /// basic info for a torrent task
-struct TorrentTaskConf: Hashable {
+public struct TorrentTaskConf: Hashable {
     let torrent: TorrentModel
     // A string of length 20 which this downloader uses as its id
     let id: Data
@@ -51,11 +51,11 @@ struct TorrentTaskConf: Hashable {
         return peerID.data(using: .utf8)!
     }
     
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
     
-    static func == (lhs: TorrentTaskConf, rhs: TorrentTaskConf) -> Bool {
+    public static func == (lhs: TorrentTaskConf, rhs: TorrentTaskConf) -> Bool {
         return lhs.torrent.infoHashSHA1 == rhs.torrent.infoHashSHA1 && lhs.idString == rhs.idString
     }
     

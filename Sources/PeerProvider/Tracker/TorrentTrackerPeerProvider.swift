@@ -12,8 +12,8 @@ public enum TorrentTrackerPeerProviderError: Error {
 }
 
 protocol TorrentTrackerPeerProviderDelegate: AnyObject {
-    func torrentTrackerPeerProvider(_ sender: TorrentTrackerPeerProvider, got newPeers: [TorrentPeerInfo], for clientID: Data)
-    func torrentTrackerPeerProvider(_ sender: TorrentTrackerPeerProvider) -> TorrentTrackerManagerAnnonuceInfo
+    func torrentTrackerPeerProvider(_ sender: TorrentTrackerPeerProvider, got newPeers: [TorrentPeerInfo], for conf: TorrentTaskConf)
+    func torrentTrackerPeerProvider(_ sender: TorrentTrackerPeerProvider, for conf: TorrentTaskConf) -> TorrentTrackerManagerAnnonuceInfo
 }
 
 class TorrentTrackerPeerProvider {
@@ -36,10 +36,6 @@ class TorrentTrackerPeerProvider {
         let unusedPort = try! findUnusedPort()
         let manager = TorrentTrackerManager(torrentConf: conf, port: unusedPort)
         trackerMangerDict[conf] = (manager, unusedPort)
-    }
-    
-    func startTrackerPeerProvider(for conf: TorrentTaskConf) {
-        trackerMangerDict[conf]?.manager.startTrackersAccess()
     }
     
     func stopTrackerPeerProvider(for conf: TorrentTaskConf) {
@@ -74,12 +70,17 @@ extension TorrentTrackerPeerProvider: TorrentTrackerManagerDelegate {
     func torrentTrackerManager(_ sender: TorrentTrackerManager, gotNewPeers peers: [TorrentPeerInfo]) {
         for (key, value) in trackerMangerDict {
             if value.manager === sender {
-                delegate?.torrentTrackerPeerProvider(self, got: peers, for: key.id)
+                delegate?.torrentTrackerPeerProvider(self, got: peers, for: key)
             }
         }
     }
     
     func torrentTrackerManagerAnnonuceInfo(_ sender: TorrentTrackerManager) -> TorrentTrackerManagerAnnonuceInfo {
-        delegate?.torrentTrackerPeerProvider(self) ?? .EMPTY_INFO
+        for (key, value) in trackerMangerDict {
+            if value.manager === sender {
+                return delegate?.torrentTrackerPeerProvider(self, for: key) ?? .EMPTY_INFO
+            }
+        }
+        return .EMPTY_INFO
     }
 }

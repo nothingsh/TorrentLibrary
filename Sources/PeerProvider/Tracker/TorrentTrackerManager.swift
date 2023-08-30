@@ -89,10 +89,6 @@ class TorrentTrackerManager {
         return result
     }
     
-    func startTrackersAccess() {
-        forceRestart()
-    }
-    
     func resumeTrackersAccess() {
         forceRestart()
     }

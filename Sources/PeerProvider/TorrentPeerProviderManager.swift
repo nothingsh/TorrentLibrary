@@ -9,8 +9,8 @@ import Foundation
 import TorrentModel
 
 protocol TorrentPeerProviderDelegate: AnyObject {
-    func torrentPeerProvider(_ sender:TorrentPeerProviderManager, newPeers: [TorrentPeerInfo], for clientID: Data)
-    func torrentPeerProviderManagerAnnonuceInfo(_ sender: TorrentPeerProviderManager) -> TorrentTrackerManagerAnnonuceInfo
+    func torrentPeerProvider(_ sender:TorrentPeerProviderManager, newPeers: [TorrentPeerInfo], for conf: TorrentTaskConf)
+    func torrentPeerProviderManagerAnnonuceInfo(_ sender: TorrentPeerProviderManager, conf: TorrentTaskConf) -> TorrentTrackerManagerAnnonuceInfo
 }
 
 class TorrentPeerProviderManager {
@@ -24,8 +24,14 @@ class TorrentPeerProviderManager {
         lsdProvider = try TorrentLSDPeerProvider()
     }
     
-    func startPeersProvider(for conf: TorrentTaskConf) {
-        trackerProvider.startTrackerPeerProvider(for: conf)
+    func setuPeerProvider(for conf: TorrentTaskConf) {
+        trackerProvider.setupTrackerPeerProvider(for: conf)
+        lsdProvider.setupLSDProvider(taskConf: conf)
+    }
+    
+    func removePeerProvider(for conf: TorrentTaskConf) {
+        trackerProvider.removeTrackerPeerProvider(for: conf)
+        lsdProvider.removeLSDPeerProvider(for: conf)
     }
     
     func resumePeersProvider(for conf: TorrentTaskConf) {
@@ -45,17 +51,17 @@ class TorrentPeerProviderManager {
 }
 
 extension TorrentPeerProviderManager: TorrentTrackerPeerProviderDelegate {
-    func torrentTrackerPeerProvider(_ sender: TorrentTrackerPeerProvider, got newPeers: [TorrentPeerInfo], for clientID: Data) {
-        delegate?.torrentPeerProvider(self, newPeers: newPeers, for: clientID)
+    func torrentTrackerPeerProvider(_ sender: TorrentTrackerPeerProvider, got newPeers: [TorrentPeerInfo], for conf: TorrentTaskConf) {
+        delegate?.torrentPeerProvider(self, newPeers: newPeers, for: conf)
     }
     
-    func torrentTrackerPeerProvider(_ sender: TorrentTrackerPeerProvider) -> TorrentTrackerManagerAnnonuceInfo {
-        return delegate?.torrentPeerProviderManagerAnnonuceInfo(self) ?? .EMPTY_INFO
+    func torrentTrackerPeerProvider(_ sender: TorrentTrackerPeerProvider, for conf: TorrentTaskConf) -> TorrentTrackerManagerAnnonuceInfo {
+        return delegate?.torrentPeerProviderManagerAnnonuceInfo(self, conf: conf) ?? .EMPTY_INFO
     }
 }
 
 extension TorrentPeerProviderManager: TorrentLSDPeerProviderDelegate {
-    func torrentLSDPeerProvider(_ sender: TorrentLSDPeerProviderProtocol, got newPeer: TorrentPeerInfo, for clientID: Data) {
-        delegate?.torrentPeerProvider(self, newPeers: [newPeer], for: clientID)
+    func torrentLSDPeerProvider(_ sender: TorrentLSDPeerProviderProtocol, got newPeer: TorrentPeerInfo, for conf: TorrentTaskConf) {
+        delegate?.torrentPeerProvider(self, newPeers: [newPeer], for: conf)
     }
 }

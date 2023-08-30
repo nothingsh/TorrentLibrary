@@ -18,7 +18,7 @@ protocol TorrentLSDPeerProviderProtocol: AnyObject {
 }
 
 protocol TorrentLSDPeerProviderDelegate: AnyObject {
-    func torrentLSDPeerProvider(_ sender: TorrentLSDPeerProviderProtocol, got newPeer: TorrentPeerInfo, for clientID: Data)
+    func torrentLSDPeerProvider(_ sender: TorrentLSDPeerProviderProtocol, got newPeer: TorrentPeerInfo, for conf: TorrentTaskConf)
 }
 
 /// local service discovery
@@ -85,6 +85,7 @@ class TorrentLSDPeerProvider: TorrentLSDPeerProviderProtocol {
         if let index = self.taskConfs.firstIndex(where: { $0.conf == conf }) {
             self.taskConfs[index].status = true
         }
+        self.startLSDProviderImediatly(for: conf)
     }
     
     func removeLSDPeerProvider(for conf: TorrentTaskConf) {
@@ -105,7 +106,7 @@ extension TorrentLSDPeerProvider: UDPConnectionDelegate {
             if let port = UInt16(announceInfo.port) {
                 if let index = self.taskConfs.firstIndex(where: { $0.conf.infoHash.hexEncodedString == announceInfo.infoHashes[0] }) {
                     let peerInfo = TorrentPeerInfo(ip: host, port: port)
-                    delegate?.torrentLSDPeerProvider(self, got: peerInfo, for: self.taskConfs[index].conf.id)
+                    delegate?.torrentLSDPeerProvider(self, got: peerInfo, for: self.taskConfs[index].conf)
                 }
             }
             #else

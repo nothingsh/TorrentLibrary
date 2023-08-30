@@ -65,8 +65,8 @@ struct TorrentProgress {
 }
 
 class TorrentProgressManager {
-    private let fileManager: TorrentFileManager
-    private var progressDict: [TorrentTaskConf: TorrentProgress]
+    let fileManager: TorrentFileManager
+    var progressDict: [TorrentTaskConf: TorrentProgress]
     
     init() {
         self.fileManager = TorrentFileManager()
