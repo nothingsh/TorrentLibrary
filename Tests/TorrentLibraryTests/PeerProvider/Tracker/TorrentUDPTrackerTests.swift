@@ -47,14 +47,12 @@ final class TorrentUDPTrackerTests: XCTestCase {
     }
     
     func performAnnounce(withEvent event: TorrentTrackerEvent) {
+        let announceInfo = TrackerAnnonuceInfo(numberOfBytesRemaining: 456, numberOfBytesUploaded: 1234, numberOfBytesDownloaded: 4321, numberOfPeersToFetch: 321)
         try! sut.announceClient(with: "peerId12345678901234",
                            port: 789,
                            event: event,
                            infoHash: Data([ 1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0 ]),
-                           numberOfBytesRemaining: 456,
-                           numberOfBytesUploaded: 1234,
-                           numberOfBytesDownloaded: 4321,
-                           numberOfPeersToFetch: 321)
+                           annouceInfo: announceInfo)
     }
     
     func test_startsListeningOnPort() {
@@ -123,30 +121,24 @@ final class TorrentUDPTrackerTests: XCTestCase {
         let exampleEvent = TorrentTrackerEvent.started
         let examplePort: UInt16 = 789
         let expectedInfoHash = Data([ 1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0 ])
-        let numberOfBytesRemaining = 456
-        let numberOfBytesUploaded = 1234
-        let numberOfBytesDownloaded = 4321
-        let numberOfPeersToFetch = 321
+        let announceInfo = TrackerAnnonuceInfo(numberOfBytesRemaining: 456, numberOfBytesUploaded: 1234, numberOfBytesDownloaded: 4321, numberOfPeersToFetch: 321)
         
         // Given
         try! sut.announceClient(with: peerId,
                            port: examplePort,
                            event: exampleEvent,
                            infoHash: expectedInfoHash,
-                           numberOfBytesRemaining: numberOfBytesRemaining,
-                           numberOfBytesUploaded: numberOfBytesUploaded,
-                           numberOfBytesDownloaded: numberOfBytesDownloaded,
-                           numberOfPeersToFetch: numberOfPeersToFetch)
+                           annouceInfo: announceInfo)
         // When
         let expectedConnectionId    = simulateAcceptConnection()
         let expectedAction          = UInt32(1).toData()
         let expectedPeerId          = peerId.data(using: .ascii)!
-        let expectedDownloaded      = UInt64(numberOfBytesDownloaded).toData()
-        let expectedLeft            = UInt64(numberOfBytesRemaining).toData()
-        let expectedUploaded        = UInt64(numberOfBytesUploaded).toData()
+        let expectedDownloaded      = UInt64(announceInfo.numberOfBytesDownloaded).toData()
+        let expectedLeft            = UInt64(announceInfo.numberOfBytesRemaining).toData()
+        let expectedUploaded        = UInt64(announceInfo.numberOfBytesUploaded).toData()
         let expectedEvent           = exampleEvent.udpData
         let expectedIPAddress       = UInt32(0).toData() // default value
-        let expectedNumWant         = UInt32(numberOfPeersToFetch).toData()
+        let expectedNumWant         = UInt32(announceInfo.numberOfPeersToFetch).toData()
         let expectedPort            = UInt16(examplePort).toData()
         
         // Then

@@ -50,11 +50,8 @@ final class TorrentLSDPeerProviderTests: XCTestCase {
         
         self.udpConnection = UDPConnectionStub()
         self.torrentLSDDelegateSpy = TorrentLSDProviderDelegateSpy()
-        do {
-            sut = try TorrentLSDPeerProvider(udpConnection: udpConnection)
-        } catch {
-            print("Error: \(error.localizedDescription)")
-        }
+        self.sut = TorrentLSDPeerProvider(udpConnection: udpConnection)
+        
         sut.delegate = torrentLSDDelegateSpy
         
         self.taskConfs = [
@@ -70,48 +67,48 @@ final class TorrentLSDPeerProviderTests: XCTestCase {
     }
     
     func testSetupLSDProvider() {
-        sut.setupLSDProvider(taskConf: taskConfs[0])
-        sut.setupLSDProvider(taskConf: taskConfs[1])
+        sut.registerTorrent(with: taskConfs[0])
+        sut.registerTorrent(with: taskConfs[1])
         
-        XCTAssertEqual(sut.taskConfs.count, taskConfs.count)
+        XCTAssertEqual(sut.taskCount, taskConfs.count)
     }
     
     func testStopLSDProvider() {
-        sut.setupLSDProvider(taskConf: taskConfs[0])
+        sut.registerTorrent(with: taskConfs[0])
         
         sut.stopLSDPeerProvider(for: taskConfs[0])
         
-        XCTAssertEqual(sut.taskConfs.first!.status, false)
+        XCTAssertEqual(sut.getTaskStatus(at: 0), false)
     }
     
     func testResumeLSDProvider() {
-        sut.setupLSDProvider(taskConf: taskConfs[0])
+        sut.registerTorrent(with: taskConfs[0])
         
         sut.stopLSDPeerProvider(for: taskConfs[0])
         sut.resumeLSDPeerProvider(for: taskConfs[0])
         
-        XCTAssertEqual(sut.taskConfs.first!.status, true)
+        XCTAssertEqual(sut.getTaskStatus(at: 0), true)
     }
     
     func testRemoveLSDProvider() {
-        sut.setupLSDProvider(taskConf: taskConfs[0])
+        sut.registerTorrent(with: taskConfs[0])
         
         sut.removeLSDPeerProvider(for: taskConfs[0])
         
-        XCTAssertEqual(sut.taskConfs.count, 0)
+        XCTAssertEqual(sut.taskCount, 0)
     }
     
     func testStopAnnounce() {
-        sut.setupLSDProvider(taskConf: taskConfs[0])
+        sut.registerTorrent(with: taskConfs[0])
         sut.stopLSDPeerProvider(for: taskConfs[0])
         
-        sut.startLSDProviderImediatly(for: taskConfs[0])
+        sut.announceTorrent(with: taskConfs[0])
         
         XCTAssertFalse(torrentLSDDelegateSpy.torrentLSDPeerProviderCalled)
     }
     
     func testLSDDataReceiving() {
-        sut.setupLSDProvider(taskConf: self.taskConfs[0])
+        sut.registerTorrent(with: self.taskConfs[0])
         
         let header = "BT-SEARCH * HTTP/1.1\r\n"
         let port: UInt16 = 6771

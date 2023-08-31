@@ -20,14 +20,14 @@ public class TorrentTaskManager {
     public var torrentList: Array<(conf: TorrentTaskConf, status: TorrentTaskStatus)>
 
     var listenerSocket: TorrentListenerSocket
-    var peerProvider: TorrentPeerProviderManager
+    var peerProvider: TorrentPeerProvider
     var transferManager: TorrentDataTransferManager
     var progressManager: TorrentProgressManager
     
     public init() {
         self.torrentList = []
         self.listenerSocket = TorrentListenerSocket()
-        self.peerProvider = try! TorrentPeerProviderManager()
+        self.peerProvider = TorrentPeerProvider(listenOn: listenerSocket.port)
         self.transferManager = TorrentDataTransferManager()
         self.progressManager = TorrentProgressManager()
         
@@ -41,7 +41,7 @@ public class TorrentTaskManager {
         let conf = try createTorrentTaskConf(from: torrent, rootDirectory: rootDirectory)
         
         self.torrentList.append((conf, .started))
-        self.peerProvider.setuPeerProvider(for: conf)
+        self.peerProvider.registerTorrent(with: conf)
         self.transferManager.setupDataTransferManager(for: conf)
         self.progressManager.setupProgressMananger(for: conf)
     }
@@ -143,20 +143,20 @@ extension TorrentTaskManager: TorrentListenerSocketDelegate {
 }
 
 extension TorrentTaskManager: TorrentPeerProviderDelegate {
-    func torrentPeerProvider(_ sender: TorrentPeerProviderManager, newPeers: [TorrentPeerInfo], for conf: TorrentTaskConf) {
+    func torrentPeerProvider(_ sender: TorrentPeerProvider, newPeers: [TorrentPeerInfo], for conf: TorrentTaskConf) {
         if let item = self.torrentList.first(where: { $0.conf == conf }) {
             transferManager.addNewPeers(with: newPeers, for: item.conf)
         }
     }
     
-    func torrentPeerProviderManagerAnnonuceInfo(_ sender: TorrentPeerProviderManager, conf: TorrentTaskConf) -> TorrentTrackerManagerAnnonuceInfo {
+    func torrentPeerProviderManagerAnnonuceInfo(_ sender: TorrentPeerProvider, conf: TorrentTaskConf) -> TrackerAnnonuceInfo {
         guard let progress = progressManager.getProgress(for: conf) else {
             return .EMPTY_INFO
         }
         
         let peersCount = transferManager.getPeerCount(for: conf)
         
-        return TorrentTrackerManagerAnnonuceInfo(
+        return TrackerAnnonuceInfo(
             numberOfBytesRemaining: progress.remaining * conf.info.pieceLength,
             numberOfBytesUploaded: 0,
             numberOfBytesDownloaded: progress.downloaded * conf.info.pieceLength,

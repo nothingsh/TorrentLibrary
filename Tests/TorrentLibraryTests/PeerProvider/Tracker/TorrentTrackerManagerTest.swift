@@ -17,29 +17,20 @@ class TorrentTrackerStub: TorrentTrackerProtocol {
     port: UInt16,
     event: TorrentTrackerEvent,
     infoHash: Data,
-    numberOfBytesRemaining: Int,
-    numberOfBytesUploaded: Int,
-    numberOfBytesDownloaded: Int,
-    numberOfPeersToFetch: Int)?
+    annouceInfo: TrackerAnnonuceInfo)?
     
     var onAnnounceClient: (()->Void)?
     func announceClient(with peerId: String,
                         port: UInt16,
                         event: TorrentTrackerEvent,
                         infoHash: Data,
-                        numberOfBytesRemaining: Int,
-                        numberOfBytesUploaded: Int,
-                        numberOfBytesDownloaded: Int,
-                        numberOfPeersToFetch: Int) {
+                        annouceInfo: TrackerAnnonuceInfo) {
         announceClientCalled = true
         announceClientParameters = (peerId,
                                     port,
                                     event,
                                     infoHash,
-                                    numberOfBytesRemaining,
-                                    numberOfBytesUploaded,
-                                    numberOfBytesDownloaded,
-                                    numberOfPeersToFetch)
+                                    annouceInfo: annouceInfo)
         onAnnounceClient?()
     }
 }
@@ -49,8 +40,8 @@ class TorrentTrackerManagerDelegateStub: TorrentTrackerManagerDelegate {
         
     }
     
-    var torrentTrackerManagerAnnonuceInfoResult = TorrentTrackerManagerAnnonuceInfo(numberOfBytesRemaining: 0, numberOfBytesUploaded: 0, numberOfBytesDownloaded: 0, numberOfPeersToFetch: 0)
-    func torrentTrackerManagerAnnonuceInfo(_ sender: TorrentTrackerManager) -> TorrentTrackerManagerAnnonuceInfo {
+    var torrentTrackerManagerAnnonuceInfoResult = TrackerAnnonuceInfo(numberOfBytesRemaining: 0, numberOfBytesUploaded: 0, numberOfBytesDownloaded: 0, numberOfPeersToFetch: 0)
+    func torrentTrackerManagerAnnonuceInfo(_ sender: TorrentTrackerManager) -> TrackerAnnonuceInfo {
         return torrentTrackerManagerAnnonuceInfoResult
     }
 }
@@ -69,7 +60,7 @@ final class TorrentTrackerManagerTest: XCTestCase {
     let listeningPort: UInt16 = 123
     var conf: TorrentTaskConf!
     
-    let announceInfo = TorrentTrackerManagerAnnonuceInfo(numberOfBytesRemaining: 1,
+    let announceInfo = TrackerAnnonuceInfo(numberOfBytesRemaining: 1,
                                                          numberOfBytesUploaded: 2,
                                                          numberOfBytesDownloaded: 3,
                                                          numberOfPeersToFetch: 4)
@@ -139,10 +130,10 @@ final class TorrentTrackerManagerTest: XCTestCase {
         XCTAssertEqual(listeningPort, sut.port)
         XCTAssertEqual(announceClientParameters.event, .started)
         XCTAssertEqual(announceClientParameters.infoHash, model.infoHashSHA1)
-        XCTAssertEqual(announceClientParameters.numberOfBytesRemaining, announceInfo.numberOfBytesRemaining)
-        XCTAssertEqual(announceClientParameters.numberOfBytesUploaded, announceInfo.numberOfBytesUploaded)
-        XCTAssertEqual(announceClientParameters.numberOfBytesDownloaded, announceInfo.numberOfBytesDownloaded)
-        XCTAssertEqual(announceClientParameters.numberOfPeersToFetch, announceInfo.numberOfPeersToFetch)
+        XCTAssertEqual(announceClientParameters.annouceInfo.numberOfBytesRemaining, announceInfo.numberOfBytesRemaining)
+        XCTAssertEqual(announceClientParameters.annouceInfo.numberOfBytesUploaded, announceInfo.numberOfBytesUploaded)
+        XCTAssertEqual(announceClientParameters.annouceInfo.numberOfBytesDownloaded, announceInfo.numberOfBytesDownloaded)
+        XCTAssertEqual(announceClientParameters.annouceInfo.numberOfPeersToFetch, announceInfo.numberOfPeersToFetch)
     }
     
     func test_announceRepeats() {

@@ -14,10 +14,9 @@ struct LSDAnnounce {
     // broadcast address and port in LAN
     static let LSD_IPv6_HOST = "ff15::efc0:988f"
     static let LSD_IPv4_HOST = "239.192.152.143"
-    static let LSD_LISTEN_PORT: UInt16 = 6772
     
     let host: String
-    let port: String
+    let port: UInt16
     let infoHashes: [String]
     let cookie: String?
     
@@ -27,7 +26,7 @@ struct LSDAnnounce {
     /// - Parameter port: on which the bittorrent client is listening in base-10, ascii
     /// - Parameter infoHash: hex-encoded (40 character) infohash, An announce may contain multiple, consecutive Infohash headers to announce the participation in more than one torrent.
     /// - Parameter cookie: opaque value, allowing the sending client to filter out its own announces if it receives them via multicast loopback
-    init(host: String = Self.LSD_IPv4_HOST, port: String = String(Self.LSD_LISTEN_PORT), infoHashes: [String], cookie: String?) {
+    init(host: String = Self.LSD_IPv4_HOST, port: UInt16, infoHashes: [String], cookie: String?) {
         self.host = host
         self.port = port
         self.infoHashes = infoHashes
@@ -60,7 +59,7 @@ struct LSDAnnounce {
             throw TorrentLSDPeerProviderError.unexpectedAnnounceContent
         }
         
-        guard let port = announceDict["Port"] else {
+        guard let portString = announceDict["Port"], let port = UInt16(portString) else {
             throw TorrentLSDPeerProviderError.unexpectedAnnounceContent
         }
         
@@ -96,6 +95,10 @@ struct LSDAnnounce {
         let endStr = "\r\n\r\n"
         
         return LSDAnnounce.HEADER + hostStr + portStr + infoHashStr + cookieStr + endStr
+    }
+    
+    func toData() -> Data? {
+        return self.announceString().data(using: Self.ENCODING)
     }
     
     var infoHashesString: String {

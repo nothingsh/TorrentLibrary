@@ -8,18 +8,18 @@
 import Foundation
 import TorrentModel
 
-struct TorrentTrackerManagerAnnonuceInfo {
+struct TrackerAnnonuceInfo {
     let numberOfBytesRemaining: Int
     let numberOfBytesUploaded: Int
     let numberOfBytesDownloaded: Int
     let numberOfPeersToFetch: Int
     
-    static let EMPTY_INFO = TorrentTrackerManagerAnnonuceInfo(numberOfBytesRemaining: 0, numberOfBytesUploaded: 0, numberOfBytesDownloaded: 0, numberOfPeersToFetch: 0)
+    static let EMPTY_INFO = TrackerAnnonuceInfo(numberOfBytesRemaining: 0, numberOfBytesUploaded: 0, numberOfBytesDownloaded: 0, numberOfPeersToFetch: 0)
 }
 
 protocol TorrentTrackerManagerDelegate: AnyObject {
     func torrentTrackerManager(_ sender: TorrentTrackerManager, gotNewPeers peers: [TorrentPeerInfo])
-    func torrentTrackerManagerAnnonuceInfo(_ sender: TorrentTrackerManager) -> TorrentTrackerManagerAnnonuceInfo
+    func torrentTrackerManagerAnnonuceInfo(_ sender: TorrentTrackerManager) -> TrackerAnnonuceInfo
 }
 
 class TorrentTrackerManager {
@@ -36,7 +36,7 @@ class TorrentTrackerManager {
     
     var announceTimeInterval: TimeInterval = 600
     // private weak var announceTimer: Timer?
-    private lazy var announceTimer: Timer = { [unowned self] in
+    private lazy var announceTimer: Timer = {
         return Timer.scheduledTimer(timeInterval: self.announceTimeInterval,
                                     target: self,
                                     selector: #selector(announce),
@@ -69,6 +69,7 @@ class TorrentTrackerManager {
         
         var result: [TorrentTrackerProtocol] = []
         
+        var currentPort = port
         for urlString in flatAnnounceList {
             if let url = URL(string: urlString) {
                 if url.scheme == "http" || url.scheme == "https" {
@@ -76,8 +77,11 @@ class TorrentTrackerManager {
                     result.append(tracker)
                 } else if url.scheme == "udp" {
                     do {
-                        let tracker = try TorrentUDPTracker(announceURL: url, port: port)
+                        // TODO: each tracker will create a new socket, and the created sockets can't listen to the same port, so we either create one socket for all or assign each one a socket
+                        let tracker = try TorrentUDPTracker(announceURL: url, port: currentPort)
                         result.append(tracker)
+                        
+                        currentPort += 1
                     } catch {
                         print("Error: unable to create udp tracker: \(urlString)")
                     }
@@ -99,6 +103,7 @@ class TorrentTrackerManager {
     
     func forceRestart() {
         announceTimer.fire()
+        // try? self.announce()
     }
     
     @objc private func announce() throws {
@@ -106,7 +111,7 @@ class TorrentTrackerManager {
         
         let announceInfo = delegate.torrentTrackerManagerAnnonuceInfo(self)
         for tracker in trackers {
-            try tracker.announceClient(with: torrentConf.idString, port: Self.DEFAULT_PORT, event: .started, infoHash: torrentConf.infoHash, numberOfBytesRemaining: announceInfo.numberOfBytesRemaining, numberOfBytesUploaded: announceInfo.numberOfBytesUploaded, numberOfBytesDownloaded: announceInfo.numberOfBytesDownloaded, numberOfPeersToFetch: announceInfo.numberOfPeersToFetch)
+            try tracker.announceClient(with: torrentConf.idString, port: Self.DEFAULT_PORT, event: .started, infoHash: torrentConf.infoHash, annouceInfo: announceInfo)
         }
     }
 }

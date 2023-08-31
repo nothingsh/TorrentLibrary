@@ -38,7 +38,7 @@ class HTTPConnectionStub: HTTPConnection {
     // MARK: -
     
     func completeLastRequest(with response: HTTPResponse) {
-        delegate?.httpConnection(self, response: response)
+        delegate?.httpConnection(self, url: URL(string: "www.baidu.com")!, response: response)
     }
     
 }
@@ -93,14 +93,12 @@ final class TorrentHTTPTrackerTests: XCTestCase {
     }
     
     func performAnnounce(withEvent event: TorrentTrackerEvent) {
+        let announceInfo = TrackerAnnonuceInfo(numberOfBytesRemaining: 456, numberOfBytesUploaded: 1234, numberOfBytesDownloaded: 4321, numberOfPeersToFetch: 321)
         try! sut.announceClient(with: "peerId",
                            port: 123,
                            event: event,
                            infoHash: Data([7,8,9]),
-                           numberOfBytesRemaining: 456,
-                           numberOfBytesUploaded: 1234,
-                           numberOfBytesDownloaded: 4321,
-                           numberOfPeersToFetch: 321)
+                           annouceInfo: announceInfo)
     }
     
     func test_announce() {

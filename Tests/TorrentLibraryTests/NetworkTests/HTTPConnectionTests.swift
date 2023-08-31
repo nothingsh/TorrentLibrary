@@ -11,7 +11,7 @@ import OHHTTPStubsSwift
 import OHHTTPStubs
 
 class HTTPConnectionDelegateStub: HTTPConnectionDelegate {
-    func httpConnection(_ sender: HTTPConnectionProtocol, response: TorrentLibrary.HTTPResponse) {
+    func httpConnection(_ sender: HTTPConnectionProtocol, url: URL, response: TorrentLibrary.HTTPResponse) {
         
     }
 }

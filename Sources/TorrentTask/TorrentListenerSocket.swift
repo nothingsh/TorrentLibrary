@@ -13,11 +13,12 @@ protocol TorrentListenerSocketDelegate: AnyObject {
     func getTorrentTaskInfo(for torrentSocket: TorrentListenerSocket, of infoHash: Data) -> (id: Data, progress: BitField)?
 }
 
+/// Listen for incoming BitTorrent connection from remote peers who try to join the swarm that has the specific torrent info hash
 class TorrentListenerSocket: NSObject {
     weak var delegate: TorrentListenerSocketDelegate?
     
     var listenSocket: GCDAsyncSocket!
-    let port: UInt16 = TorrentTrackerManager.DEFAULT_PORT
+    static let LISTEN_PORT_RANGE = Range<UInt16>(6881...6889)
     
     var acceptedSockets: [GCDAsyncSocket] = []
     
@@ -32,10 +33,23 @@ class TorrentListenerSocket: NSObject {
     }
     
     func startListening() {
+        for port in Self.LISTEN_PORT_RANGE {
+            if tryToListen(on: port) {
+                break
+            }
+            
+            if port == Self.LISTEN_PORT_RANGE.upperBound {
+                print("Error: Can't find proper port to listening!")
+            }
+        }
+    }
+    
+    private func tryToListen(on port: UInt16) -> Bool {
         do {
             try listenSocket.accept(onPort: port)
+            return true
         } catch _ {
-            print("ERROR: Couldn't listen on port to accept incoming peers")
+            return false
         }
     }
     
@@ -45,6 +59,10 @@ class TorrentListenerSocket: NSObject {
     
     func stopListening() {
         listenSocket.disconnect()
+    }
+    
+    var port: UInt16 {
+        listenSocket.localPort
     }
 }
 

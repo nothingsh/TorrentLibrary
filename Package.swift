@@ -42,7 +42,8 @@ let package = Package(
                 .copy("Resources/BigTorrentTest.torrent"),
                 .copy("Resources/Data.bin"),
                 .copy("Resources/text.txt"),
-                .copy("Resources/TestText.torrent")
+                .copy("Resources/TestText.torrent"),
+                .copy("Resources/test.torrent")
             ]
         ),
     ]

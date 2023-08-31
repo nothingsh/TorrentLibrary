@@ -36,7 +36,7 @@ protocol HTTPConnectionProtocol: AnyObject {
 }
 
 protocol HTTPConnectionDelegate: AnyObject {
-    func httpConnection(_ sender: HTTPConnectionProtocol, response: HTTPResponse)
+    func httpConnection(_ sender: HTTPConnectionProtocol, url: URL, response: HTTPResponse)
 }
 
 class HTTPConnection: HTTPConnectionProtocol {
@@ -50,17 +50,18 @@ class HTTPConnection: HTTPConnectionProtocol {
                 guard let strongSelf = self else {
                     return
                 }
-                strongSelf.delegate?.httpConnection(strongSelf, response: HTTPResponse(response: response))
+                strongSelf.delegate?.httpConnection(strongSelf, url: url, response: HTTPResponse(response: response))
             }
     }
     
-    /// only for unit test
+    #if DEBUG
     func makeRequest(url: URL, urlParameters: [String: String]? = nil, completion: @escaping (HTTPResponse)->Void) {
         AF.request(url, parameters: urlParameters, encoding: encoding)
             .responseData { response in
                 completion(HTTPResponse(response: response))
             }
     }
+    #endif
     
     class ParameterEncodingFixer: ParameterEncoding {
         func encode(_ requestConvertable: URLRequestConvertible, with parameters: Parameters?) throws -> URLRequest {

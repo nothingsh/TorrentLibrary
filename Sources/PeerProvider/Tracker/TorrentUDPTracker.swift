@@ -27,10 +27,10 @@ class TorrentUDPTracker: TorrentTrackerProtocol {
         self.udpConnection = udpConnection
         
         udpConnection.delegate = self
-        try udpConnection.listening(on: port)
+        // try udpConnection.listening(on: port)
     }
     
-    func announceClient(with peerID: String, port: UInt16, event: TorrentTrackerEvent, infoHash: Data, numberOfBytesRemaining: Int, numberOfBytesUploaded: Int, numberOfBytesDownloaded: Int, numberOfPeersToFetch: Int) throws {
+    func announceClient(with peerID: String, port: UInt16, event: TorrentTrackerEvent, infoHash: Data, annouceInfo: TrackerAnnonuceInfo) throws {
         guard let announceHost = announce.host else {
             throw TorrentUDPTrackerError.unexpectedAnnounceHost
         }
@@ -59,19 +59,27 @@ class TorrentUDPTracker: TorrentTrackerProtocol {
             payload += strongSelf.makeTransactionID()            // 12     32-bit integer  transaction_id
             payload += infoHash                                  // 16     20-byte string  info_hash
             payload += peerID.data(using: .ascii)!               // 36     20-byte string  peer_id
-            payload += UInt64(numberOfBytesDownloaded).toData()  // 56     64-bit integer  downloaded
-            payload += UInt64(numberOfBytesRemaining).toData()   // 64     64-bit integer  left
-            payload += UInt64(numberOfBytesUploaded).toData()    // 72     64-bit integer  uploaded
+            payload += UInt64(annouceInfo.numberOfBytesDownloaded).toData()  // 56     64-bit integer  downloaded
+            payload += UInt64(annouceInfo.numberOfBytesRemaining).toData()   // 64     64-bit integer  left
+            payload += UInt64(annouceInfo.numberOfBytesUploaded).toData()    // 72     64-bit integer  uploaded
             payload += event.udpData                             // 80     32-bit integer  event
             payload += UInt32(0).toData()                        // 84     32-bit integer  IP address      0 // default
             payload += UInt32(0).toData()                        // 88     32-bit integer  key             0 // default
-            payload += UInt32(numberOfPeersToFetch).toData()     // 92     32-bit integer  num_want       -1 // default
+            payload += UInt32(annouceInfo.numberOfPeersToFetch).toData()     // 92     32-bit integer  num_want       -1 // default
             payload += UInt16(port).toData()                     // 96     16-bit integer  port
             
             strongSelf.udpConnection.send(payload, toHost: host, port: announcePort, timeout: 10)
         }
     }
     
+    /// connect request
+    ///
+    /// | offset | size | name | value |
+    /// | :----  | :---- | :------- | :--- |
+    /// | 0 | 8B | protocol_id | 0x41727101980 // magic number |
+    /// | 8 | 4B | action | 0 // connect |
+    /// | 12 | 4B | transaction_id | - |
+    /// | 16 | - | - | - |
     private func makeConnectionPayload(with transactionID: Data) -> Data {
         return Self.PROTOCOL_ID + Self.CONNECTION_HEADER + transactionID
     }

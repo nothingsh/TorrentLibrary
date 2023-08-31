@@ -57,4 +57,16 @@ extension UDPConnection: GCDAsyncUdpSocketDelegate {
         let hostName = InternetHelper.parseSocketIPAddress(from: address) ?? "Unknown host"
         delegate?.udpConnection(self, receivedData: data, fromHost: hostName)
     }
+    
+    func udpSocket(_ sock: GCDAsyncUdpSocket, didSendDataWithTag tag: Int) {
+        print("UDP SocketDid sent data with local port: \(sock.localPort()), connected port:  \(sock.connectedPort())")
+    }
+    
+    func udpSocket(_ sock: GCDAsyncUdpSocket, didNotConnect error: Error?) {
+        print("UDP Socket did not connected")
+    }
+    
+    func udpSocket(_ sock: GCDAsyncUdpSocket, didConnectToAddress address: Data) {
+        print("UDP Socket did connected")
+    }
 }
