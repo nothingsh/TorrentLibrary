@@ -215,8 +215,7 @@ extension TorrentPeerCommunicator: TCPConnectionDelegate {
     }
     
     func tcpConnection(_ sender: TCPConnectionProtocol, disconnectedWithError error: Error?) {
-        // This was in my previous implementation, not sure why - never used:
-        // let connectionWasRefused = (error == nil) || error.code == 61
+        print("Error: disconnected with error - \(String(describing: error?.localizedDescription))")
         delegate?.peerLost(self)
     }
 }

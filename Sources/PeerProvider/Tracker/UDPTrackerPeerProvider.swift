@@ -15,7 +15,7 @@ class UDPTrackerPeerProvider: TorrentTrackerProtocol {
     private var urlParameters: [String: Data]
     
     static let MAX_UDP_TRACKER_CONNECTION: Int = 10
-    static let START_PORT: UInt16 = 3475
+    static var START_PORT: UInt16 = 3475
     
     init(announceURLs: [URL]) {
         self.urlParameters = [:]
@@ -53,12 +53,13 @@ class UDPTrackerPeerProvider: TorrentTrackerProtocol {
         for _ in 0..<udpConnectionCount {
             let udpConnection = UDPConnection()
             
-            var port = Self.START_PORT
+            var port = Self.START_PORT + 1
             while !self.tryToListen(connection: udpConnection, on: port) {
                 port += 1
             }
             
             udpConnection.delegate = self
+            self.udpConnectionPool.append(udpConnection)
         }
     }
     
@@ -78,6 +79,8 @@ class UDPTrackerPeerProvider: TorrentTrackerProtocol {
         }
         
         for index in 0..<self.udpConnectionPool.count {
+            self.requestList[index].requested = true
+            
             let host = self.requestList[index].host
             let port = self.requestList[index].port
             let transactionID = self.requestList[index].transactionID!
@@ -100,10 +103,16 @@ class UDPTrackerPeerProvider: TorrentTrackerProtocol {
     }
     
     private func tryToListen(connection: UDPConnectionProtocol, on port: UInt16) -> Bool  {
+        if connection.localPort != 0 {
+            return true
+        }
+        
         do {
             try connection.listening(on: port)
+            Self.START_PORT = port
             return true
         } catch {
+            print("Warning: can't listen on \(port) - \(error.localizedDescription)")
             return false
         }
     }

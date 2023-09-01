@@ -55,16 +55,21 @@ class TorrentLSDPeerProvider: TorrentLSDPeerProviderProtocol {
     private func listen() {
         var port = Self.LSD_PORT
         
-        while !tryToListen(on: port) {
+        while !tryToListen(on: port) && port < 10000 {
             port += 1
         }
     }
     
     private func tryToListen(on port: UInt16) -> Bool {
+        if self.localPort != 0 {
+            return true
+        }
+        
         do {
             try self.udpConnection.listening(on: port)
             return false
         } catch {
+            print("Warnning: listen on port \(port) failed - \(error.localizedDescription)")
             return true
         }
     }

@@ -27,7 +27,7 @@ public class TorrentTaskManager {
     public init() {
         self.torrentList = []
         self.listenerSocket = TorrentListenerSocket()
-        self.peerProvider = TorrentPeerProvider(listenOn: listenerSocket.port)
+        self.peerProvider = TorrentPeerProvider.shared
         self.transferManager = TorrentDataTransferManager()
         self.progressManager = TorrentProgressManager()
         
@@ -41,9 +41,9 @@ public class TorrentTaskManager {
         let conf = try createTorrentTaskConf(from: torrent, rootDirectory: rootDirectory)
         
         self.torrentList.append((conf, .started))
-        self.peerProvider.registerTorrent(with: conf)
         self.transferManager.setupDataTransferManager(for: conf)
         self.progressManager.setupProgressMananger(for: conf)
+        self.peerProvider.registerTorrent(with: conf)
     }
     
     // stop torrent task
@@ -126,6 +126,10 @@ extension TorrentTaskManager {
 }
 
 extension TorrentTaskManager: TorrentListenerSocketDelegate {
+    func torrentListenSocket(_ torrentSocket: TorrentListenerSocket, listenedOn port: UInt16) {
+        self.peerProvider.setupTrackerAnnouncePort(port: port)
+    }
+    
     func torrentListenSocket(_ torrentSocket: TorrentListenerSocket, connectedToPeer peer: TorrentPeer, for infoHash: Data) {
         if let item = torrentList.first(where: { $0.conf.infoHash == infoHash }) {
             transferManager.addNewPeer(with: peer, for: item.conf)
@@ -154,13 +158,12 @@ extension TorrentTaskManager: TorrentPeerProviderDelegate {
             return .EMPTY_INFO
         }
         
-        let peersCount = transferManager.getPeerCount(for: conf)
-        
+        // TODO: fill the real info
         return TrackerAnnonuceInfo(
             numberOfBytesRemaining: progress.remaining * conf.info.pieceLength,
             numberOfBytesUploaded: 0,
             numberOfBytesDownloaded: progress.downloaded * conf.info.pieceLength,
-            numberOfPeersToFetch: peersCount
+            numberOfPeersToFetch: 50
         )
     }
 }

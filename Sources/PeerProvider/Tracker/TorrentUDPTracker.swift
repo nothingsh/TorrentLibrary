@@ -27,7 +27,7 @@ class TorrentUDPTracker: TorrentTrackerProtocol {
         self.udpConnection = udpConnection
         
         udpConnection.delegate = self
-        // try udpConnection.listening(on: port)
+        try udpConnection.listening(on: port)
     }
     
     func announceClient(with peerID: String, port: UInt16, event: TorrentTrackerEvent, infoHash: Data, annouceInfo: TrackerAnnonuceInfo) throws {

@@ -59,7 +59,7 @@ extension UDPConnection: GCDAsyncUdpSocketDelegate {
     }
     
     func udpSocket(_ sock: GCDAsyncUdpSocket, didSendDataWithTag tag: Int) {
-        print("UDP SocketDid sent data with local port: \(sock.localPort()), connected port:  \(sock.connectedPort())")
+        print("UDP SocketDid sent data with local port: \(sock.localPort())")
     }
     
     func udpSocket(_ sock: GCDAsyncUdpSocket, didNotConnect error: Error?) {

@@ -11,6 +11,7 @@ import CocoaAsyncSocket
 protocol TorrentListenerSocketDelegate: AnyObject {
     func torrentListenSocket(_ torrentSocket: TorrentListenerSocket, connectedToPeer peer: TorrentPeer, for infoHash: Data)
     func getTorrentTaskInfo(for torrentSocket: TorrentListenerSocket, of infoHash: Data) -> (id: Data, progress: BitField)?
+    func torrentListenSocket(_ torrentSocket: TorrentListenerSocket, listenedOn port: UInt16)
 }
 
 /// Listen for incoming BitTorrent connection from remote peers who try to join the swarm that has the specific torrent info hash
@@ -25,6 +26,7 @@ class TorrentListenerSocket: NSObject {
     override init() {
         super.init()
         self.listenSocket = GCDAsyncSocket(delegate: self, delegateQueue: .main)
+        self.startListening()
     }
     
     deinit {
@@ -35,6 +37,7 @@ class TorrentListenerSocket: NSObject {
     func startListening() {
         for port in Self.LISTEN_PORT_RANGE {
             if tryToListen(on: port) {
+                delegate?.torrentListenSocket(self, listenedOn: port)
                 break
             }
             
@@ -45,10 +48,15 @@ class TorrentListenerSocket: NSObject {
     }
     
     private func tryToListen(on port: UInt16) -> Bool {
+        if self.listenSocket.localPort != 0 {
+            return true
+        }
+        
         do {
             try listenSocket.accept(onPort: port)
             return true
-        } catch _ {
+        } catch {
+            print("Warning: client listen on port \(port) failed - \(error.localizedDescription)")
             return false
         }
     }

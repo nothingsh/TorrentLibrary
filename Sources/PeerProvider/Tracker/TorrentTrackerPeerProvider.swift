@@ -18,7 +18,7 @@ protocol TorrentTrackerPeerProviderDelegate: AnyObject {
 }
 
 class TorrentTrackerPeerProvider {
-    private let announcePort: UInt16
+    private var announcePort: UInt16
     private var taskTrackers: [TaskTracker]
     private var announceIndex: Int
     
@@ -34,10 +34,14 @@ class TorrentTrackerPeerProvider {
                                     repeats: true)
     }()
     
-    init(listenOn port: UInt16) {
-        self.announcePort = port
+    init() {
+        self.announcePort = TorrentListenerSocket.LISTEN_PORT_RANGE.lowerBound
         self.taskTrackers = []
         self.announceIndex = 0
+    }
+    
+    func setupAnnouncePort(port: UInt16) {
+        self.announcePort = port
     }
     
     /// registered torrent will be announced repeatly
@@ -92,11 +96,17 @@ class TorrentTrackerPeerProvider {
     }
     
     func registerTorrent(with conf: TorrentTaskConf) {
+        let isEmpty = self.taskTrackers.isEmpty
+        
         let trackers = self.createTracker(torrent: conf.torrent)
         let task = TaskTracker(conf: conf, trackers: trackers)
         
         self.taskTrackers.append(task)
-        self.announceTorrent(with: conf)
+        if isEmpty {
+            self.announceTimer.fire()
+        } else {
+            self.announceTorrent(with: conf)
+        }
     }
     
     private func createTracker(torrent: TorrentModel) -> [TorrentTrackerProtocol] {
@@ -121,6 +131,8 @@ class TorrentTrackerPeerProvider {
         
         let httpTracker = HTTPTrackerPeerProvider(announceURLs: httpURLs)
         let udpTracker = UDPTrackerPeerProvider(announceURLs: udpURLs)
+        httpTracker.delegate = self
+        udpTracker.delegate = self
         
         return [httpTracker, udpTracker]
     }
@@ -141,6 +153,10 @@ class TorrentTrackerPeerProvider {
     func removeTrackerPeerProvider(for conf: TorrentTaskConf) {
         if let index = self.taskTrackers.firstIndex(where: { $0.conf == conf }) {
             self.taskTrackers.remove(at: index)
+        }
+        
+        if self.taskTrackers.isEmpty {
+            self.announceTimer.invalidate()
         }
     }
     

@@ -22,15 +22,24 @@ protocol TorrentPeerProviderDelegate: AnyObject {
 }
 
 class TorrentPeerProvider: TorrentPeerProviderProtocol {
+    static let shared = TorrentPeerProvider()
+    
     weak var delegate: TorrentPeerProviderDelegate?
     
     private var trackerProvider: TorrentTrackerPeerProvider
     private var lsdProvider: TorrentLSDPeerProvider
     // var dhtProvider: TorrentDHTPeerProvider
     
-    init(listenOn port: UInt16) {
-        trackerProvider = TorrentTrackerPeerProvider(listenOn: port)
-        lsdProvider = TorrentLSDPeerProvider()
+    private init() {
+        self.trackerProvider = TorrentTrackerPeerProvider()
+        self.lsdProvider = TorrentLSDPeerProvider()
+        
+        self.trackerProvider.delegate = self
+        self.lsdProvider.delegate = self
+    }
+    
+    func setupTrackerAnnouncePort(port: UInt16) {
+        trackerProvider.setupAnnouncePort(port: port)
     }
     
     func registerTorrent(with conf: TorrentTaskConf) {
