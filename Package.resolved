@@ -19,12 +19,21 @@
       }
     },
     {
+      "identity" : "ohhttpstubs",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/AliSoftware/OHHTTPStubs",
+      "state" : {
+        "revision" : "12f19662426d0434d6c330c6974d53e2eb10ecd9",
+        "version" : "9.1.0"
+      }
+    },
+    {
       "identity" : "torrentmodel",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/nothingsh/TorrentModel",
       "state" : {
-        "revision" : "50a10bd7fce64a70177859b6e3b269d1c11b2745",
-        "version" : "1.0.3"
+        "revision" : "b223ac8454825ee6fa4a2dd30dd75abe06b83f68",
+        "version" : "1.0.4"
       }
     }
   ],

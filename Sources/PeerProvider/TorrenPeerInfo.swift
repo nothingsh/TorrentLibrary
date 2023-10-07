@@ -56,11 +56,11 @@ struct TorrentPeerInfo: Equatable {
             for ipIndex in 0..<4 {
                 let index = data.startIndex + 6 * peerIndex + ipIndex
                 let ipNumber = Int(data[index])
-                ipAddress += (ipIndex == 0 ? "\(ipNumber)" : ":\(ipNumber)")
+                ipAddress += (ipIndex == 0 ? "\(ipNumber)" : ".\(ipNumber)")
             }
             
-            let portBytesIndex = data.startIndex + 6*peerIndex + 5
-            let port = UInt16(data[portBytesIndex]) << 8 + UInt16(data[portBytesIndex-1])
+            let portBytesIndex = data.startIndex + 6*peerIndex + 4
+            let port = UInt16(data[portBytesIndex]) << 8 + UInt16(data[portBytesIndex+1])
             
             result.append(TorrentPeerInfo(ip: ipAddress, port: port))
         }

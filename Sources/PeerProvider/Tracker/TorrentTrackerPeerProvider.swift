@@ -2,102 +2,188 @@
 //  TorrentTrackerPeerProvider.swift
 //  
 //
-//  Created by Wynn Zhang on 7/3/23.
+//  Created by Wynn Zhang on 8/28/23.
 //
 
 import Foundation
 import TorrentModel
 
-struct TorrentTrackerManagerAnnonuceInfo {
-    let numberOfBytesRemaining: Int
-    let numberOfBytesUploaded: Int
-    let numberOfBytesDownloaded: Int
-    let numberOfPeersToFetch: Int
+public enum TorrentTrackerPeerProviderError: Error {
+    case noValidPortLeft
 }
 
-protocol TorrentTrackerManagerDelegate: AnyObject {
-    func torrentTrackerManager(_ sender: TorrentTrackerPeerProvider, gotNewPeers peers: [TorrentPeerInfo])
-    func torrentTrackerManagerAnnonuceInfo(_ sender: TorrentTrackerPeerProvider) -> TorrentTrackerManagerAnnonuceInfo
+protocol TorrentTrackerPeerProviderDelegate: AnyObject {
+    func torrentTrackerPeerProvider(_ sender: TorrentTrackerPeerProvider, got newPeers: [TorrentPeerInfo], for conf: TorrentTaskConf)
+    func torrentTrackerPeerProvider(_ sender: TorrentTrackerPeerProvider, for conf: TorrentTaskConf) -> TrackerAnnonuceInfo
 }
 
 class TorrentTrackerPeerProvider {
-    weak var delegate: TorrentTrackerManagerDelegate?
+    private var announcePort: UInt16
+    private var taskTrackers: [TaskTracker]
+    private var announceIndex: Int
     
-    let trackers: [TorrentTrackerProtocol]
+    weak var delegate: TorrentTrackerPeerProviderDelegate?
     
-    let torrentModel: TorrentModel
-    let clientID: String
-    let port: UInt16
-    
-    static let DEFAULT_PORT: UInt16 = 6881
-    
-    var announceTimeInterval: TimeInterval = 600
-    private lazy var announceTimer: Timer = {
-        return Timer.scheduledTimer(timeInterval: self.announceTimeInterval, target: self, selector: #selector(announce), userInfo: nil, repeats: true)
+    static let ANNOUNCE_INTERVAL: TimeInterval = 600
+    // private weak var announceTimer: Timer?
+    private lazy var announceTimer: Timer = { [unowned self] in
+        return Timer.scheduledTimer(timeInterval: Self.ANNOUNCE_INTERVAL,
+                                    target: self,
+                                    selector: #selector(self.announceTasks),
+                                    userInfo: nil,
+                                    repeats: true)
     }()
     
-    init(torrentModel: TorrentModel, peerID: Data) {
-        self.torrentModel = torrentModel
-        self.clientID = String(data: peerID, encoding: .utf8)!
-        self.port = Self.DEFAULT_PORT
-        self.trackers = TorrentTrackerPeerProvider.createTrackers(from: torrentModel)
-        
-        for tracker in trackers {
-            tracker.delegate = self
-        }
-    }
-        
-    private static func createTrackers(from model: TorrentModel) -> [TorrentTrackerProtocol] {
-        let announceList = model.announceList
-        let flatAnnounceList = announceList.flatMap { return $0 }
-        
-        var lastPortNumberUsed: UInt16 = 3475
-        var result: [TorrentTrackerProtocol] = []
-        
-        for urlString in flatAnnounceList {
-            if let url = URL(string: urlString) {
-                if url.scheme == "http" || url.scheme == "https" {
-                    let tracker = TorrentHTTPTracker(announce: url.bySettingScheme(to: "https"))
-                    result.append(tracker)
-                } else if url.scheme == "udp" {
-                    do {
-                        let tracker = try TorrentUDPTracker(announceURL: url, port: lastPortNumberUsed)
-                        result.append(tracker)
-                        
-                        // TODO: Support sharing the listening port for all udp trackers
-                        lastPortNumberUsed += 1
-                    } catch {
-                        print("Error: unable to create udp tracker: \(urlString)")
-                    }
-                }
-            } else {
-                print("Error: unable to parse announce list item: \(urlString)")
-            }
-        }
-        return result
+    init() {
+        self.announcePort = TorrentListenerSocket.LISTEN_PORT_RANGE.lowerBound
+        self.taskTrackers = []
+        self.announceIndex = 0
     }
     
-    func start() {
-        forceRestart()
+    func setupAnnouncePort(port: UInt16) {
+        self.announcePort = port
     }
     
-    func forceRestart() {
-        announceTimer.fire()
-    }
-    
-    @objc private func announce() throws {
+    /// registered torrent will be announced repeatly
+    @objc func announceTasks() {
         guard let delegate = delegate else { return }
         
-        let announceInfo = delegate.torrentTrackerManagerAnnonuceInfo(self)
-        for tracker in trackers {
-            try tracker.announceClient(with: clientID, port: port, event: .started, infoHash: torrentModel.infoHashSHA1, numberOfBytesRemaining: announceInfo.numberOfBytesRemaining, numberOfBytesUploaded: announceInfo.numberOfBytesUploaded, numberOfBytesDownloaded: announceInfo.numberOfBytesDownloaded, numberOfPeersToFetch: announceInfo.numberOfPeersToFetch)
+        guard let task = self.findFirstValidTask() else {
+            return
+        }
+        
+        let announceInfo = delegate.torrentTrackerPeerProvider(self, for: task.conf)
+        for tracker in task.trackers {
+            do {
+                try tracker.announceClient(with: task.peerIDString, port: self.announcePort, event: .started, infoHash: task.infoHash, annouceInfo: announceInfo)
+            } catch {
+                print("Error: unable to announce tracker: \(tracker)")
+            }
+        }
+        
+        self.announceIndex += 1
+    }
+    
+    private func findFirstValidTask() -> TaskTracker? {
+        // make sure there is valid tasks
+        guard self.taskTrackers.contains(where: { $0.isVaild }) else {
+            return nil
+        }
+        
+        self.announceIndex = self.announceIndex % self.taskTrackers.count
+        while(!self.taskTrackers[self.announceIndex].isVaild) {
+            self.announceIndex = (self.announceIndex + 1) % self.taskTrackers.count
+        }
+        
+        return self.taskTrackers[self.announceIndex]
+    }
+    
+    func announceTorrent(with conf: TorrentTaskConf) {
+        guard let delegate = delegate else { return }
+        
+        guard let task = self.taskTrackers.first(where: { $0.conf == conf }) else {
+            return
+        }
+        
+        let announceInfo = delegate.torrentTrackerPeerProvider(self, for: task.conf)
+        for tracker in task.trackers {
+            do {
+                try tracker.announceClient(with: task.peerIDString, port: self.announcePort, event: .started, infoHash: task.infoHash, annouceInfo: announceInfo)
+            } catch {
+                print("Error: unable to announce tracker: \(tracker)")
+            }
+        }
+    }
+    
+    func registerTorrent(with conf: TorrentTaskConf) {
+        let isEmpty = self.taskTrackers.isEmpty
+        
+        let trackers = self.createTracker(torrent: conf.torrent)
+        let task = TaskTracker(conf: conf, trackers: trackers)
+        
+        self.taskTrackers.append(task)
+        if isEmpty {
+            self.announceTimer.fire()
+        } else {
+            self.announceTorrent(with: conf)
+        }
+    }
+    
+    private func createTracker(torrent: TorrentModel) -> [TorrentTrackerProtocol] {
+        let announceList = torrent.announceList
+        let flatAnnounceList = announceList.flatMap { return $0 }
+        
+        var httpURLs: [URL] = []
+        var udpURLs: [URL] = []
+        
+        for urlString in flatAnnounceList {
+            guard let url = URL(string: urlString) else {
+                print("Warning: can't parse tracker url string to URL - \(urlString)")
+                continue
+            }
+            
+            if url.scheme == "http" || url.scheme == "https" {
+                httpURLs.append(url)
+            } else {
+                udpURLs.append(url)
+            }
+        }
+        
+        let httpTracker = HTTPTrackerPeerProvider(announceURLs: httpURLs)
+        let udpTracker = UDPTrackerPeerProvider(announceURLs: udpURLs)
+        httpTracker.delegate = self
+        udpTracker.delegate = self
+        
+        return [httpTracker, udpTracker]
+    }
+    
+    func stopTrackerPeerProvider(for conf: TorrentTaskConf) {
+        if let index = self.taskTrackers.firstIndex(where: { $0.conf == conf }) {
+            self.taskTrackers[index].isVaild = false
+        }
+    }
+    
+    func resumeTrackerPeerProvider(for conf: TorrentTaskConf) {
+        if let index = self.taskTrackers.firstIndex(where: { $0.conf == conf }) {
+            self.taskTrackers[index].isVaild = true
+            self.announceTorrent(with: conf)
+        }
+    }
+    
+    func removeTrackerPeerProvider(for conf: TorrentTaskConf) {
+        if let index = self.taskTrackers.firstIndex(where: { $0.conf == conf }) {
+            self.taskTrackers.remove(at: index)
+        }
+        
+        if self.taskTrackers.isEmpty {
+            self.announceTimer.invalidate()
+        }
+    }
+    
+    private struct TaskTracker {
+        let conf: TorrentTaskConf
+        var isVaild: Bool = true
+        var trackers: [TorrentTrackerProtocol] = []
+        
+        var peerIDString: String {
+            conf.idString
+        }
+        
+        var infoHash: Data {
+            conf.infoHash
         }
     }
 }
 
 extension TorrentTrackerPeerProvider: TorrentTrackerDelegate {
     func torrentTracker(_ sender: TorrentTrackerProtocol, receivedResponse response: TorrentTrackerResponse) {
-        delegate?.torrentTrackerManager(self, gotNewPeers: response.peers)
+        for task in self.taskTrackers {
+            for tracker in task.trackers {
+                if tracker === sender {
+                    delegate?.torrentTrackerPeerProvider(self, got: response.peers, for: task.conf)
+                }
+            }
+        }
     }
     
     func torrentTracker(_ sender: TorrentTrackerProtocol, receivedErrorMessage errorMessage: String) {

@@ -72,6 +72,10 @@ class TorrentPeer {
         }
     }
     
+    func disconnect() {
+        communicator.disconnect()
+    }
+    
     fileprivate func sendHandshakeIfNeeded() {
         guard let (clientId, bitField) = handshakeData, !sentHandshake else { return }
         

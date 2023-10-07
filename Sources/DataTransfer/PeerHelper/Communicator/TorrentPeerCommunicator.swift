@@ -56,7 +56,7 @@ class TorrentPeerCommunicator {
     }
     
     private let peerInfo: TorrentPeerInfo
-    private let connection: TCPConnection
+    private let connection: TCPConnectionProtocol
     
     fileprivate let infoHash: Data
     
@@ -64,7 +64,7 @@ class TorrentPeerCommunicator {
     fileprivate let handshakeMessageBuffer: TorrentPeerHandshakeBuffer
     fileprivate let messageBuffer: TorrentPeerMessageBuffer
     
-    init(peerInfo: TorrentPeerInfo, infoHash: Data, tcpConnection: TCPConnection = TCPConnection()) {
+    init(peerInfo: TorrentPeerInfo, infoHash: Data, tcpConnection: TCPConnectionProtocol = TCPConnection()) {
         self.peerInfo = peerInfo
         self.connection = tcpConnection
         self.infoHash = infoHash
@@ -80,6 +80,10 @@ class TorrentPeerCommunicator {
     
     func connect() throws {
         try connection.connect(to: peerInfo.ip, onPort: peerInfo.port)
+    }
+    
+    func disconnect() {
+        connection.disconnect()
     }
     
     // MARK: - Writing messages
@@ -191,12 +195,12 @@ class TorrentPeerCommunicator {
 // MARK: - Reading messages
 
 extension TorrentPeerCommunicator: TCPConnectionDelegate {
-    func tcpConnection(_ sender: TCPConnection, didConnectToHost host: String, port: UInt16) {
+    func tcpConnection(_ sender: TCPConnectionProtocol, didConnectToHost host: String, port: UInt16) {
         delegate?.peerConnected(self)
         connection.readData(withTimeout: -1, tag: 0)
     }
     
-    func tcpConnection(_ sender: TCPConnection, didRead data: Data, withTag tag: Int) {
+    func tcpConnection(_ sender: TCPConnectionProtocol, didRead data: Data, withTag tag: Int) {
         if !handshakeReceived {
             handshakeMessageBuffer.appendData(data)
         } else {
@@ -206,13 +210,12 @@ extension TorrentPeerCommunicator: TCPConnectionDelegate {
         connection.readData(withTimeout: -1, tag: 0)
     }
     
-    func tcpConnection(_ sender: TCPConnection, didWriteDataWithTag tag: Int) {
+    func tcpConnection(_ sender: TCPConnectionProtocol, didWriteDataWithTag tag: Int) {
         
     }
     
-    func tcpConnection(_ sender: TCPConnection, disconnectedWithError error: Error?) {
-        // This was in my previous implementation, not sure why - never used:
-        // let connectionWasRefused = (error == nil) || error.code == 61
+    func tcpConnection(_ sender: TCPConnectionProtocol, disconnectedWithError error: Error?) {
+        print("Error: disconnected with error - \(String(describing: error?.localizedDescription))")
         delegate?.peerLost(self)
     }
 }
@@ -286,12 +289,8 @@ extension TorrentPeerCommunicator: TorrentPeerMessageBufferDelegate {
     private func processHasPieceMessage(_ message: Data) {
         let startIndex = message.startIndex + 5, endIndex = message.startIndex + 9
         
-        do {
-            let pieceIndex = Int(try UInt32(data: message[startIndex..<endIndex]))
-            delegate?.peer(self, hasPiece: pieceIndex)
-        } catch {
-            print("Error: unable to process has piece message - \(error.localizedDescription)")
-        }
+        let pieceIndex = Int(UInt32(data: message[startIndex..<endIndex]))
+        delegate?.peer(self, hasPiece: pieceIndex)
     }
     
     private func processBitFieldMessage(_ message: Data) {
@@ -304,41 +303,29 @@ extension TorrentPeerCommunicator: TorrentPeerMessageBufferDelegate {
         let index0 = message.startIndex + 5, index1 = message.startIndex + 9
         let index2 = message.startIndex + 13, index3 = message.startIndex + 17
         
-        do {
-            let pieceIndex = Int(try UInt32(data: message[index0..<index1]))
-            let begin = Int(try UInt32(data: message[index1..<index2]))
-            let length = Int(try UInt32(data: message[index2..<index3]))
-            delegate?.peer(self, requestedPiece: pieceIndex, begin: begin, length: length)
-        } catch {
-            print("Error: unable to process requst message - \(error.localizedDescription)")
-        }
+        let pieceIndex = Int(UInt32(data: message[index0..<index1]))
+        let begin = Int(UInt32(data: message[index1..<index2]))
+        let length = Int(UInt32(data: message[index2..<index3]))
+        delegate?.peer(self, requestedPiece: pieceIndex, begin: begin, length: length)
     }
     
     private func processSentPieceMessage(_ message: Data) {
         let index0 = message.startIndex + 5, index1 = message.startIndex + 9, index2 = message.startIndex + 13
         
-        do {
-            let pieceIndex = Int(try UInt32(data: message[index0..<index1]))
-            let begin = Int(try UInt32(data: message[index1..<index2]))
-            let block = message[index2..<message.endIndex]
-            delegate?.peer(self, sentPiece: pieceIndex, begin: begin, block: block)
-        } catch {
-            print("Error: unable to process sent piece message - \(error.localizedDescription)")
-        }
+        let pieceIndex = Int(UInt32(data: message[index0..<index1]))
+        let begin = Int(UInt32(data: message[index1..<index2]))
+        let block = message[index2..<message.endIndex]
+        delegate?.peer(self, sentPiece: pieceIndex, begin: begin, block: block)
     }
     
     private func processCancelRequestMessage(_ message: Data) {
         let index0 = message.startIndex + 5, index1 = message.startIndex + 9
         let index2 = message.startIndex + 13, index3 = message.startIndex + 17
         
-        do {
-            let pieceIndex = Int(try UInt32(data: message[index0..<index1]))
-            let begin = Int(try UInt32(data: message[index1..<index2]))
-            let length = Int(try UInt32(data: message[index2..<index3]))
-            delegate?.peer(self, cancelledRequestedPiece: pieceIndex, begin: begin, length: length)
-        } catch {
-            print("Error: unable to process cancel request message - \(error.localizedDescription)")
-        }
+        let pieceIndex = Int(UInt32(data: message[index0..<index1]))
+        let begin = Int(UInt32(data: message[index1..<index2]))
+        let length = Int(UInt32(data: message[index2..<index3]))
+        delegate?.peer(self, cancelledRequestedPiece: pieceIndex, begin: begin, length: length)
     }
 }
 

@@ -44,7 +44,7 @@ struct BitField: Equatable {
         }
     }
     
-    mutating func setBit(at index: Int, with value: Bool) {
+    mutating func setBit(at index: Int, with value: Bool = true) {
         bits[index] = value
     }
     
@@ -75,16 +75,30 @@ struct BitField: Equatable {
         return !bits.contains(where: { !$0 })
     }
     
-    var progress: Float {
-        if bits.count == 0 {
-            return 0
-        }
-        return Float(bits.filter{ $0 }.count) / Float(bits.count)
-    }
-    
     var size: Int {
         return bits.count
     }
     
     static let BITMASK: [UInt8] = [128, 64, 32, 16, 8, 4, 2, 1]
+}
+
+extension BitField: Collection {
+    typealias Index = Array<Bool>.Index
+    
+    var startIndex: Index {
+        return bits.startIndex
+    }
+    
+    var endIndex: Index {
+        return bits.endIndex
+    }
+    
+    subscript(position: Index) -> (index: Int, isSet: Bool) {
+        precondition(position >= 0 && position < size, "out of bounds")
+        return (index: position, isSet: bits[position])
+    }
+    
+    func index(after i: Index) -> Index {
+        return bits.index(after: i)
+    }
 }

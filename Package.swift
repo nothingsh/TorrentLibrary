@@ -18,9 +18,10 @@ let package = Package(
             targets: ["TorrentLibrary"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/nothingsh/TorrentModel", .upToNextMajor(from: "1.0.3")),
+        .package(url: "https://github.com/nothingsh/TorrentModel", .upToNextMajor(from: "1.0.4")),
         .package(url: "https://github.com/Alamofire/Alamofire", .upToNextMajor(from: "5.0.0")),
-        .package(url: "https://github.com/robbiehanson/CocoaAsyncSocket", .upToNextMajor(from: "7.0.0"))
+        .package(url: "https://github.com/robbiehanson/CocoaAsyncSocket", .upToNextMajor(from: "7.0.0")),
+        .package(url: "https://github.com/AliSoftware/OHHTTPStubs", .upToNextMajor(from: "9.0.0"))
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -31,6 +32,19 @@ let package = Package(
             path: "Sources"),
         .testTarget(
             name: "TorrentLibraryTests",
-            dependencies: ["TorrentLibrary"]),
+            dependencies: [
+                .target(name: "TorrentLibrary"),
+                .product(name: "TorrentModel", package: "TorrentModel"),
+                .product(name: "OHHTTPStubsSwift", package: "OHHTTPStubs")
+            ],
+            resources: [
+                .copy("Resources/TrackerManagerTests.torrent"),
+                .copy("Resources/BigTorrentTest.torrent"),
+                .copy("Resources/Data.bin"),
+                .copy("Resources/text.txt"),
+                .copy("Resources/TestText.torrent"),
+                .copy("Resources/test.torrent")
+            ]
+        ),
     ]
 )

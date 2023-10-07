@@ -15,5 +15,5 @@ protocol TorrentTrackerDelegate: AnyObject {
 protocol TorrentTrackerProtocol: AnyObject {
     var delegate: TorrentTrackerDelegate? { get set }
     
-    func announceClient(with peerID: String, port: UInt16, event: TorrentTrackerEvent, infoHash: Data, numberOfBytesRemaining: Int, numberOfBytesUploaded: Int, numberOfBytesDownloaded: Int, numberOfPeersToFetch: Int) throws
+    func announceClient(with peerID: String, port: UInt16, event: TorrentTrackerEvent, infoHash: Data, annouceInfo: TrackerAnnonuceInfo) throws
 }

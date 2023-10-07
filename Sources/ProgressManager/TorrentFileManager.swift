@@ -25,126 +25,149 @@ class TorrentFileManager {
         case piece
     }
     
-    private let torrentModel: TorrentModel
-    private var torrentInfo: TorrentModelInfo {
-        torrentModel.info
-    }
-    private var torrentInfoHash: Data {
-        torrentModel.infoHashSHA1
-    }
+    var streamConfDict: [TorrentTaskConf: FileHandleProtocol] = [:]
     
-    private let rootDirectory: String
-    private let fileHandle: FileHandleProtocol
-    
-    var bitField: BitField {
-        get {
-            // Note: maybe load aynchronously
-            (try? loadSavedProgressBitfield()) ?? BitField(size: torrentInfo.pieces.count)
-        } set {
-            saveProgressBitfield()
-        }
-    }
-    
-    init(torrent: TorrentModel, rootDirectory: String) throws {
-        self.torrentModel = torrent
-        self.rootDirectory = rootDirectory
-        
-        guard let files = torrent.info.files else {
+    func setupFileStreamHandler(for conf: TorrentTaskConf) throws {
+        guard let files = conf.info.files else {
             throw TorrentFileManagerError.unexpectedFileInfo
         }
         
         let handles = try files.map {
             let subPath = $0.path.reduce(""){ $0.count == 0 ? $1 : $0 + "/" + $1 }
-            let fullPath = rootDirectory + "/" + subPath
+            let fullPath = conf.rootDirectory + "/" + subPath
             guard let handle = FileHandle(forReadingAtPath: fullPath) else {
                 throw TorrentFileManagerError.unexpectedFilePath
             }
             return handle
         }
         
-        self.fileHandle = try MultiFileHandle(fileHandles: handles)
-        try self.prepareRootDirectory()
+        self.streamConfDict[conf] = try MultiFileHandle(fileHandles: handles)
+        try self.prepareRootDirectory(for: conf)
+    }
+    
+    func removeFileStreamHandler(for conf: TorrentTaskConf) {
+        streamConfDict.removeValue(forKey: conf)
+    }
+    
+    #if DEBUG
+    func setupFileStreamHandler(for conf: TorrentTaskConf, with handles: [FileHandleProtocol]) {
+        streamConfDict[conf] = try! MultiFileHandle(fileHandles: handles)
+    }
+    #endif
+    
+    func reCheckProgress(for conf: TorrentTaskConf) -> BitField {
+        var result = BitField(size: conf.info.pieces.count)
+        for (pieceIndex, _) in result {
+            autoreleasepool {
+                let correctSha1 = conf.info.pieces[pieceIndex]
+                let piece = try! readDataFromFiles(at: pieceIndex, for: conf)
+                let sha1 = piece.sha1()
+                if sha1 == correctSha1 {
+                    result.setBit(at: pieceIndex)
+                }
+            }
+        }
+        return result
     }
     
     /// write data to files by piece or block
-    func writeDataToFiles(by type: DataFragmentType = .piece, at index: Int, with data: Data) throws {
-        let startIndex = calcuateStartOffset(by: type, at: index)
+    func writeDataToFiles(
+        by type: DataFragmentType = .piece,
+        at index: Int,
+        with data: Data,
+        for conf: TorrentTaskConf
+    ) throws {
+        let startIndex = calcuateStartOffset(by: type, at: index, for: conf)
         
         if #available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *) {
-            try fileHandle.seek(toOffset: startIndex)
+            try streamConfDict[conf]?.seek(toOffset: startIndex)
         } else {
-            fileHandle.seek(toFileOffset: startIndex)
+            streamConfDict[conf]?.seek(toFileOffset: startIndex)
         }
         
         if #available(iOS 13.4, macOS 10.15.4, tvOS 13.4, watchOS 6.2, *) {
-            try fileHandle.write(contentsOf: data)
+            try streamConfDict[conf]?.write(contentsOf: data)
         } else {
-            fileHandle.write(data)
-        }
-        
-        // Do not support block progress tracking yet ...
-        if type == .piece {
-            bitField.setBit(at: index, with: true)
+            streamConfDict[conf]?.write(data)
         }
     }
     
     /// read data from files by piece or block
-    func readDataFromFiles(by type: DataFragmentType = .piece, at index: Int) throws -> Data {
-        let startIndex = calcuateStartOffset(by: type, at: index)
-        let length = try calcuateDataLength(by: type, at: index)
+    func readDataFromFiles(
+        by type: DataFragmentType = .piece,
+        at index: Int,
+        for conf: TorrentTaskConf
+    ) throws -> Data {
+        let startIndex = calcuateStartOffset(by: type, at: index, for: conf)
+        let length = try calcuateDataLength(by: type, at: index, for: conf)
         
         if #available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *) {
-            try fileHandle.seek(toOffset: startIndex)
+            try streamConfDict[conf]?.seek(toOffset: startIndex)
         } else {
-            fileHandle.seek(toFileOffset: startIndex)
+            streamConfDict[conf]?.seek(toFileOffset: startIndex)
         }
         
         if #available(iOS 13.4, macOS 10.15.4, tvOS 13.4, watchOS 6.2, *) {
-            guard let data = try fileHandle.read(upToCount: Int(length)) else {
+            guard let data = try streamConfDict[conf]?.read(upToCount: Int(length)) else {
                 throw TorrentFileManagerError.unexpectedReadingFailure
             }
             return data
         } else {
-            return fileHandle.readData(ofLength: Int(length))
+            return streamConfDict[conf]!.readData(ofLength: Int(length))
         }
     }
     
-    private func calcuateStartOffset(by type: DataFragmentType, at index: Int) -> UInt64 {
+    private func calcuateStartOffset(
+        by type: DataFragmentType,
+        at index: Int,
+        for conf: TorrentTaskConf
+    ) -> UInt64 {
         switch type {
         case .block(let pieceIndex):
-            return UInt64(pieceIndex * torrentInfo.pieceLength) + UInt64(index) * TorrentBlock.BLOCK_SIZE
+            return UInt64(pieceIndex * conf.info.pieceLength) + UInt64(index) * TorrentBlock.BLOCK_SIZE
         case .piece:
-            return UInt64(index * torrentInfo.pieceLength)
+            return UInt64(index * conf.info.pieceLength)
         }
     }
     
-    private func calcuateDataLength(by type: DataFragmentType, at index: Int) throws -> UInt64 {
+    private func calcuateDataLength(
+        by type: DataFragmentType,
+        at index: Int,
+        for conf: TorrentTaskConf
+    ) throws -> UInt64 {
         switch type {
         case .block(let pieceIndex):
-            return try calculateBlockSize(at: index, with: pieceIndex)
+            return try calculateBlockSize(at: index, with: pieceIndex, for: conf)
         case .piece:
-            return try calculatePieceSize(at: index)
+            return try calculatePieceSize(at: index, for: conf)
         }
     }
     
-    private func calculatePieceSize(at index: Int) throws -> UInt64 {
-        guard let fullLength = torrentInfo.length else {
+    private func calculatePieceSize(
+        at index: Int,
+        for conf: TorrentTaskConf
+    ) throws -> UInt64 {
+        guard let fullLength = conf.info.length else {
             throw TorrentFileManagerError.unexpectedFileLength
         }
         
-        guard index < torrentInfo.pieces.count else {
+        guard index < conf.info.pieces.count else {
             throw TorrentFileManagerError.unexpectedPieceIndex
         }
         
-        if (fullLength % torrentInfo.pieceLength == 0) || (index < torrentInfo.pieces.count - 1) {
-            return UInt64(torrentInfo.pieceLength)
+        if (fullLength % conf.info.pieceLength == 0) || (index < conf.info.pieces.count - 1) {
+            return UInt64(conf.info.pieceLength)
         } else {
-            return UInt64(fullLength % torrentInfo.pieceLength)
+            return UInt64(fullLength % conf.info.pieceLength)
         }
     }
     
-    private func calculateBlockSize(at index: Int, with pieceIndex: Int) throws -> UInt64 {
-        let pieceSize = try calculatePieceSize(at: pieceIndex)
+    private func calculateBlockSize(
+        at index: Int,
+        with pieceIndex: Int,
+        for conf: TorrentTaskConf
+    ) throws -> UInt64 {
+        let pieceSize = try calculatePieceSize(at: pieceIndex, for: conf)
         let blockCount = pieceSize/TorrentBlock.BLOCK_SIZE + (pieceSize%TorrentBlock.BLOCK_SIZE == 0 ? 0 : 1)
         
         guard index < blockCount else {
@@ -159,30 +182,17 @@ class TorrentFileManager {
     }
 }
 
-extension TorrentFileManager {
-    func nextPieceDownloadRequest() -> TorrentPieceRequest? {
-        for (index, isDownloaded) in bitField.bits.enumerated() {
-            if !isDownloaded {
-                if let size = torrentInfo.lengthOfPiece(at: index) {
-                    return TorrentPieceRequest(pieceIndex: index, size: size, checksum: torrentInfo.pieces[index])
-                }
-            }
-        }
-        return nil
-    }
-}
-
 // MARK: Progress load and save
 
 extension TorrentFileManager {
-    private func sanitizedFileName() -> String {
-        let base64EncodedString = torrentInfoHash.base64EncodedData().base64EncodedString()
+    static func sanitizedFileName(infoHash: Data) -> String {
+        let base64EncodedString = infoHash.base64EncodedData().base64EncodedString()
         let sanitizedString = base64EncodedString.replacingOccurrences(of: "/", with: "_")
         return sanitizedString + ".torrentprogress"
     }
     
-    private func saveProgressBitfield() {
-        let fileName = sanitizedFileName()
+    static func saveProgressBitfield(infoHash: Data, bitField: BitField) {
+        let fileName = sanitizedFileName(infoHash: infoHash)
         let documentsPath = NSSearchPathForDirectoriesInDomains(.cachesDirectory,
                                                                 .userDomainMask,
                                                                 true)[0] as String
@@ -191,13 +201,13 @@ extension TorrentFileManager {
         try? bitField.toData().write(to: fileURL)
     }
     
-    private func loadSavedProgressBitfield() throws -> BitField? {
-        let fileName = sanitizedFileName()
+    static func loadSavedProgressBitfield(infoHash: Data, count: Int) throws -> BitField? {
+        let fileName = sanitizedFileName(infoHash: infoHash)
         let documentsPath = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true)[0] as String
         let documentsUrl = URL(fileURLWithPath: documentsPath, isDirectory: true)
         let fileURL = documentsUrl.appendingPathComponent(fileName, isDirectory: false)
         if let data = try? Data(contentsOf: fileURL) {
-            return try BitField(data: data, size: torrentInfo.pieces.count)
+            return try BitField(data: data, size: count)
         }
         return nil
     }
@@ -206,10 +216,11 @@ extension TorrentFileManager {
 // MARK: File structure
 
 extension TorrentFileManager {
-    private func prepareRootDirectory() throws {
+    private func prepareRootDirectory(for conf: TorrentTaskConf) throws {
+        let rootDirectory = conf.rootDirectory
         try createDirectoryIfNeeded(directoryPath: rootDirectory)
         
-        guard let files = torrentInfo.files else {
+        guard let files = conf.info.files else {
             throw TorrentFileManagerError.unexpectedFileInfo
         }
         

@@ -7,12 +7,12 @@
 
 import Foundation
 
-public enum FileHanleError: Error {
+public enum FileHandleError: Error {
     case unexpectedRead
     case unexpectedDataLength
 }
 
-protocol FileHandleProtocol {
+public protocol FileHandleProtocol {
     var offsetInFile: UInt64 { get }
 
     func readData(ofLength length: Int) -> Data
@@ -107,7 +107,7 @@ class MultiFileHandle: FileHandleProtocol {
             if #available(iOS 13.4, macOS 10.15.4, tvOS 13.4, watchOS 6.2, *) {
                 readData = try currentFile.handle.read(upToCount: Int(acutalLength))
                 guard readData != nil else {
-                    throw FileHanleError.unexpectedRead
+                    throw FileHandleError.unexpectedRead
                 }
             } else {
                 readData = currentFile.handle.readData(ofLength: Int(acutalLength))
@@ -203,8 +203,8 @@ extension MultiFileHandle {
 extension MultiFileHandle {
     @available(iOS 13.4, macOS 10.15.4, tvOS 13.4, watchOS 6.2, *)
     func read(upToCount count: Int) throws -> Data? {
-        guard count < totalLength - offsetInFile else {
-            throw FileHanleError.unexpectedDataLength
+        if count > totalLength - offsetInFile {
+            throw FileHandleError.unexpectedDataLength
         }
         
         return try localReadData(length: count)
@@ -212,8 +212,8 @@ extension MultiFileHandle {
     
     @available(iOS 13.4, macOS 10.15.4, tvOS 13.4, watchOS 6.2, *)
     func write(contentsOf data: Data) throws {
-        guard data.count < totalLength - offsetInFile else {
-            throw FileHanleError.unexpectedDataLength
+        if data.count > totalLength - offsetInFile {
+            throw FileHandleError.unexpectedDataLength
         }
         
         try localWrite(data: data)

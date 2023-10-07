@@ -13,18 +13,18 @@ extension Data {
         return self[0]
     }
     
-    func toUInt16(bigEndian: Bool = true) throws -> UInt16 {
-        let result: UInt16 = try self.withUnsafeBytes<UInt16> { $0.load(as: UInt16.self) }
+    func toUInt16(bigEndian: Bool = true) -> UInt16 {
+        let result: UInt16 = self.withUnsafeBytes { $0.pointee }
         return bigEndian ? result.bigEndian : result
     }
     
-    func toUInt32(bigEndian: Bool = true) throws -> UInt32 {
-        let result: UInt32 = try self.withUnsafeBytes<UInt32> { $0.load(as: UInt32.self) }
+    func toUInt32(bigEndian: Bool = true) -> UInt32 {
+        let result: UInt32 = self.withUnsafeBytes { $0.pointee }
         return bigEndian ? result.bigEndian : result
     }
     
-    func toUInt64(bigEndian: Bool = true) throws -> UInt64 {
-        let result: UInt64 = try self.withUnsafeBytes<UInt64> { $0.load(as: UInt64.self) }
+    func toUInt64(bigEndian: Bool = true) -> UInt64 {
+        let result: UInt64 = self.withUnsafeBytes { $0.pointee }
         return bigEndian ? result.bigEndian : result
     }
     
@@ -33,6 +33,10 @@ extension Data {
         var digest = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
         CC_SHA1((self as NSData).bytes, CC_LONG(self.count), &digest)
         return Data(bytes: digest, count: outputLength)
+    }
+    
+    var hexEncodedString: String {
+        return self.map { String(format: "%02hhX", $0) }.joined()
     }
 }
 
@@ -66,8 +70,8 @@ extension UInt16 {
         return Data(bytes: pointer!, count: 2)
     }
     
-    init(data: Data, bigEndian: Bool = true) throws {
-        self = try data.toUInt16()
+    init(data: Data, bigEndian: Bool = true) {
+        self = data.toUInt16()
     }
 }
 
@@ -78,8 +82,8 @@ extension UInt32 {
         return Data(bytes: pointer!, count: 4)
     }
     
-    init(data: Data, bigEndian: Bool = true) throws {
-        self = try data.toUInt32()
+    init(data: Data, bigEndian: Bool = true) {
+        self = data.toUInt32()
     }
 }
 
@@ -90,7 +94,7 @@ extension UInt64 {
         return Data(bytes: pointer!, count: 8)
     }
     
-    init(data: Data, bigEndian: Bool = true) throws {
-        self = try data.toUInt64()
+    init(data: Data, bigEndian: Bool = true) {
+        self = data.toUInt64()
     }
 }

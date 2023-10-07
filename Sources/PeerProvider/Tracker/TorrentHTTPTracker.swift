@@ -19,25 +19,25 @@ class TorrentHTTPTracker: TorrentTrackerProtocol {
         self.connection.delegate = self
     }
     
-    func announceClient(with peerID: String, port: UInt16, event: TorrentTrackerEvent, infoHash: Data, numberOfBytesRemaining: Int, numberOfBytesUploaded: Int, numberOfBytesDownloaded: Int, numberOfPeersToFetch: Int) throws {
+    func announceClient(with peerID: String, port: UInt16, event: TorrentTrackerEvent, infoHash: Data, annouceInfo: TrackerAnnonuceInfo) throws {
         let parameter = [
-            "info_hash" : infoHash.base64EncodedString(),
+            "info_hash" : String(urlEncodingData: infoHash),
             "peer_id" : peerID,
             "port" : "\(port)",
-            "uploaded" : "\(numberOfBytesUploaded)",
-            "downloaded" : "\(numberOfBytesDownloaded)",
-            "left" : "\(numberOfBytesRemaining)",
+            "uploaded" : "\(annouceInfo.numberOfBytesUploaded)",
+            "downloaded" : "\(annouceInfo.numberOfBytesDownloaded)",
+            "left" : "\(annouceInfo.numberOfBytesRemaining)",
             "compact" : "1",
             "event" : event.name,
-            "numwant" : "\(numberOfPeersToFetch)"
+            "numwant" : "\(annouceInfo.numberOfPeersToFetch)"
         ]
         
-        try connection.makeRequest(url: announce, urlParameters: parameter)
+        connection.makeRequest(url: announce, urlParameters: parameter)
     }
 }
 
 extension TorrentHTTPTracker: HTTPConnectionDelegate {
-    func httpConnection(_ sender: HTTPConnection, response: HTTPResponse) {
+    func httpConnection(_ sender: HTTPConnectionProtocol, url: URL, response: HTTPResponse) {
         if let data = response.responseData {
             do {
                 if let result = try? TorrentTrackerResponse(bencode: data) {
